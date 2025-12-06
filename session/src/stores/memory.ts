@@ -1,6 +1,8 @@
 import type { SessionData, SessionStorage } from "../session.ts";
 
 /**
+ * @module
+ *
  * In-memory session storage.
  *
  * **Warning**: This storage is ephemeral and will be cleared when the server restarts.
