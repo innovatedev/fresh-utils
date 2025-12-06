@@ -1,13 +1,27 @@
 /**
  * @module
  *
+ * This module provides a persistent implementation of the `SessionStorage` interface using Deno KV.
+ *
+ * It allows your sessions to persist across server restarts and is suitable for production
+ * environments like Deno Deploy.
+ *
+ * @example
+ * ```ts
+ * import { DenoKvSessionStorage } from "@innovatedev-fresh/session/kv-store";
+ *
+ * const kv = await Deno.openKv();
+ * const store = new DenoKvSessionStorage(kv);
+ * ```
+ */
+import type { SessionData, SessionStorage } from "../session.ts";
+
+/**
  * Persistent session storage using Deno KV.
  *
  * This storage uses Deno's built-in Key-Value store to persist sessions.
  * It is suitable for production use in Deno Deploy or any Deno environment.
  */
-import type { SessionData, SessionStorage } from "../session.ts";
-
 export class DenoKvSessionStorage implements SessionStorage {
   /**
    * @param kv The Deno KV instance.
