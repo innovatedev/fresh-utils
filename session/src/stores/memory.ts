@@ -1,5 +1,3 @@
-import type { SessionData, SessionStorage } from "../session.ts";
-
 /**
  * @module
  *
@@ -8,6 +6,8 @@ import type { SessionData, SessionStorage } from "../session.ts";
  * **Warning**: This storage is ephemeral and will be cleared when the server restarts.
  * It is primarily intended for development and testing purposes.
  */
+import type { SessionData, SessionStorage } from "../session.ts";
+
 export class MemorySessionStorage implements SessionStorage {
   #store = new Map<string, SessionData>();
 

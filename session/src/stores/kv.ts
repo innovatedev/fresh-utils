@@ -1,5 +1,3 @@
-import type { SessionData, SessionStorage } from "../session.ts";
-
 /**
  * @module
  *
@@ -8,6 +6,8 @@ import type { SessionData, SessionStorage } from "../session.ts";
  * This storage uses Deno's built-in Key-Value store to persist sessions.
  * It is suitable for production use in Deno Deploy or any Deno environment.
  */
+import type { SessionData, SessionStorage } from "../session.ts";
+
 export class DenoKvSessionStorage implements SessionStorage {
   /**
    * @param kv The Deno KV instance.
