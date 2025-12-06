@@ -1,4 +1,4 @@
-import { expect } from "@std/expect";
+import { expect } from "./deps.ts";
 import { DenoKvSessionStorage } from "../src/stores/kv.ts";
 
 Deno.test("DenoKvSessionStorage", async (t) => {

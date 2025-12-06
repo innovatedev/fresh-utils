@@ -1,5 +1,8 @@
 {
   "workspace": [
     "./session"
+  ],
+  "unstable": [
+    "kv"
   ]
 }

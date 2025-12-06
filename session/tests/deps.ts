@@ -1,0 +1,1 @@
+export { expect } from "jsr:@std/expect@^1.0.0";

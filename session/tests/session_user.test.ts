@@ -1,4 +1,4 @@
-import { expect } from "@std/expect";
+import { expect } from "./deps.ts";
 import { createSessionMiddleware } from "../src/mod.ts";
 import { MemorySessionStorage } from "../src/stores/memory.ts";
 
