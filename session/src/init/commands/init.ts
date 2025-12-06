@@ -9,6 +9,11 @@ interface InitOptions {
   yes?: boolean;
 }
 
+/**
+ * Usage: `deno run -Ar jsr:@innovatedev-fresh/session/init`
+ *
+ * @param options - Configuration options for the initialization.
+ */
 export async function initAction(options: InitOptions) {
   console.log("Initializing session middleware...");
 
