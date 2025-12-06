@@ -131,6 +131,11 @@ export const handler = define.handlers({
   // 1. Deno JSON Dependency Injection
   await updateDenoJson(options.yes);
 
+  // 1.5. Check for 'unstable' 'kv' config if using KV store
+  if (store === "kv") {
+    await ensureUnstableKv(options.yes);
+  }
+
   // 2. Config & Routes
   await writeFile("config/session.ts", templates.config, options.yes);
   await writeFile("routes/login.tsx", templates.login, options.yes);
@@ -140,6 +145,50 @@ export const handler = define.handlers({
   await patchMainTs();
 
   console.log("\nSetup complete!");
+}
+
+async function ensureUnstableKv(yes?: boolean) {
+  const denoJsonPath = join(CWD, "deno.json");
+  try {
+    const content = await Deno.readTextFile(denoJsonPath);
+    let config: any;
+    try {
+      config = jsonc.parse(content);
+    } catch {
+      console.warn("Could not parse deno.json to check for 'unstable' config.");
+      return;
+    }
+
+    const unstable = config.unstable || [];
+    // 'unstable' can be an array of strings.
+    // If it's not an array (e.g. strict boolean in older deno?), we handle array only for now as 'kv' is a feature flag.
+    if (!Array.isArray(unstable)) {
+      // If it's explicitly true or something else, we might not want to touch it blindly?
+      // Modern Deno uses array for features.
+      // Let's assume array or missing.
+    } else if (unstable.includes("kv")) {
+      return; // Already has kv
+    }
+
+    // Need to add it
+    if (!await confirm("Deno KV requires 'kv' to be listed in the 'unstable' config in deno.json. Add it?", yes)) {
+      console.log("Skipping 'unstable' config update. You may need to add it manually.");
+      return;
+    }
+
+    const newUnstable = [...(Array.isArray(unstable) ? unstable : []), "kv"];
+    config.unstable = newUnstable;
+
+    await Deno.writeTextFile(denoJsonPath, JSON.stringify(config, null, 2));
+    console.log("Added 'kv' to 'unstable' in deno.json.");
+
+  } catch (e) {
+    if (e instanceof Deno.errors.NotFound) {
+      // No deno.json, can't update it
+    } else {
+      console.error("Error checking 'unstable' config:", e);
+    }
+  }
 }
 
 async function updateDenoJson(yes?: boolean) {
