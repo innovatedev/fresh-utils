@@ -1,6 +1,6 @@
-import { Confirm, Select } from "jsr:@cliffy/prompt@1.0.0-rc.8";
-import { join } from "jsr:@std/path@^1.0.0";
-import * as jsonc from "jsr:@std/jsonc@^1.0.0";
+import { Confirm, Select } from "../deps.ts";
+import { join } from "../deps.ts";
+import { jsonc } from "../deps.ts";
 
 const CWD = Deno.cwd();
 

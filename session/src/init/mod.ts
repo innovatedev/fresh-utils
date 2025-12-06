@@ -1,13 +1,21 @@
 /**
  * @module
  *
- * CLI tool for initializing the session middleware in a Fresh project.
+ * This module provides the CLI entrypoint for the `init` command.
  *
- * This module provides the `init` command which sets up the necessary configuration,
- * boilerplate code, and dependency injection for using `@innovatedev-fresh/session`.
+ * The `init` command automates the setup of `@innovatedev-fresh/session` in a Fresh project
+ * by creating configuration files, route handlers, and updating `deno.json`.
+ *
+ * @example
+ * Run directly via Deno:
+ * ```bash
+ * deno run -A jsr:@innovatedev-fresh/session/init
+ * ```
  */
-import { Command } from "jsr:@cliffy/command@1.0.0-rc.8";
+import { Command } from "./deps.ts";
 import { initAction } from "./commands/init.ts";
+
+export { initAction };
 
 if (import.meta.main) {
   await new Command()
