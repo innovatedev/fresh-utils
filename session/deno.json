@@ -1,0 +1,19 @@
+{
+  "name": "@innovatedev-fresh/session",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./memory-store": "./src/stores/memory.ts",
+    "./kv-store": "./src/stores/kv.ts",
+    "./init": "./src/init/mod.ts"
+  },
+  "imports": {
+    "fresh": "jsr:@fresh/core@^2.2.0",
+    "@std/http": "jsr:@std/http@^1.0.22"
+  },
+  "publish": {
+    "exclude": [
+      "tests"
+    ]
+  }
+}
