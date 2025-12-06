@@ -1,1 +1,19 @@
+/**
+ * @module
+ *
+ * Essential session middleware for Fresh applications.
+ *
+ * This module provides the `createSessionMiddleware` factory and associated types
+ * for handling server-side sessions in Fresh.
+ *
+ * @example
+ * ```ts
+ * import { createSessionMiddleware } from "@innovatedev-fresh/session";
+ * import { MemorySessionStorage } from "@innovatedev-fresh/session/memory-store";
+ *
+ * const session = createSessionMiddleware({
+ *   store: new MemorySessionStorage(),
+ * });
+ * ```
+ */
 export * from "./session.ts";
