@@ -50,6 +50,11 @@ export default define.page<typeof handler>((ctx) => {
           Login
         </button>
       </form>
+
+      <p class="mt-4 text-center">
+        Don't have an account?{" "}
+        <a href="/register" class="text-blue-500 hover:underline">Register</a>
+      </p>
     </div>
   );
 });

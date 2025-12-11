@@ -67,6 +67,11 @@ export default define.page(() => {
           Register
         </button>
       </form>
+
+      <p class="mt-4 text-center">
+        Already have an account?{" "}
+        <a href="/login" class="text-blue-500 hover:underline">Login</a>
+      </p>
     </div>
   );
 });
