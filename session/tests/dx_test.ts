@@ -1,13 +1,14 @@
-
-import { assertEquals, assertExists } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import {
+  assertEquals,
+  assertExists,
+} from "https://deno.land/std@0.208.0/assert/mod.ts";
 import { createSessionMiddleware, State } from "../src/session.ts";
 import { DenoKvSessionStorage } from "../src/stores/kv.ts";
 
-
 Deno.test("DX: instantiation without arguments", async () => {
-  const store = new DenoKvSessionStorage(); 
+  const store = new DenoKvSessionStorage();
   // Should work (uses default Deno.openKv())
-  
+
   // Clean up - accessing private kv promise to close it
   const kv = await (store as any).kv;
   await kv.close();
@@ -53,14 +54,15 @@ Deno.test("DX: Generic State Types", async () => {
   }
 
   const store = new DenoKvSessionStorage();
-  const sessionMiddleware = createSessionMiddleware<AppState, { name: string }>({
-    store,
-  });
+  const sessionMiddleware = createSessionMiddleware<AppState, { name: string }>(
+    {
+      store,
+    },
+  );
 
   assertExists(sessionMiddleware);
-  
+
   // Cleanup
   const kv = await (store as any).kv;
   await kv.close();
 });
-

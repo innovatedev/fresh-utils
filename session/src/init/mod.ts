@@ -25,7 +25,10 @@ if (import.meta.main) {
     .option("-s, --store <store:string>", "Store type (memory, kv)", {
       default: "kv",
     })
-    .option("-p, --preset <preset:string>", "Preset (none, basic, kv-basic, kv-prod)")
+    .option(
+      "-p, --preset <preset:string>",
+      "Preset (none, basic, kv-basic, kv-prod)",
+    )
     .option("-y, --yes", "Skip prompts and use defaults/arguments")
     .action(initAction)
     .parse(Deno.args);

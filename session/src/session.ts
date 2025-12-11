@@ -145,8 +145,6 @@ interface StoredSession {
   lastSeenAt: number;
 }
 
-
-
 /**
  * Creates the session middleware.
  *

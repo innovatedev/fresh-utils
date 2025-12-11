@@ -90,10 +90,13 @@ export class DenoKvSessionStorage implements SessionStorage {
     } = {};
 
     // Analyze first argument
-    if (kvOrPromiseOrOptions instanceof Promise || (kvOrPromiseOrOptions && "atomic" in kvOrPromiseOrOptions)) {
+    if (
+      kvOrPromiseOrOptions instanceof Promise ||
+      (kvOrPromiseOrOptions && "atomic" in kvOrPromiseOrOptions)
+    ) {
       // It's a KV or Promise<KV>
       kv = kvOrPromiseOrOptions as Deno.Kv | Promise<Deno.Kv>;
-      
+
       // Second argument should be options or prefix (legacy)
       if (Array.isArray(optionsOrPrefix)) {
         options.prefix = optionsOrPrefix;
@@ -118,7 +121,7 @@ export class DenoKvSessionStorage implements SessionStorage {
     } else {
       this.kv = Promise.resolve(kv!);
     }
-    
+
     this.prefix = options.prefix || ["session"];
     this.expireAfter = options.expireAfter;
     this.userKeyPrefix = options.userKeyPrefix || ["users"];
@@ -160,4 +163,3 @@ export class DenoKvSessionStorage implements SessionStorage {
     return res.value || undefined;
   }
 }
-

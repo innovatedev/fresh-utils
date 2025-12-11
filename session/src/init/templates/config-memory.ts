@@ -1,4 +1,7 @@
-import { createSessionMiddleware, type SessionOptions } from "@innovatedev-fresh/session";
+import {
+  createSessionMiddleware,
+  type SessionOptions,
+} from "@innovatedev-fresh/session";
 import { MemorySessionStorage } from "@innovatedev-fresh/session/memory-store";
 import type { State } from "../utils.ts";
 
@@ -14,4 +17,3 @@ export const sessionConfig: SessionOptions = {
 };
 
 export const session = createSessionMiddleware<State>(sessionConfig);
-

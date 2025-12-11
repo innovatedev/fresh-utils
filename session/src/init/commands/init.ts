@@ -25,12 +25,19 @@ type DenoJsonConfig = {
  *
  * @param options - Configuration options for the initialization.
  */
-export async function initAction(options: { yes?: boolean; store?: string; preset?: string }) {
+export async function initAction(
+  options: { yes?: boolean; store?: string; preset?: string },
+) {
   console.log("Initializing session middleware...");
 
   await checkFreshVersion();
 
-  let preset = options.preset as "none" | "basic" | "kv-basic" | "kv-prod" | undefined;
+  let preset = options.preset as
+    | "none"
+    | "basic"
+    | "kv-basic"
+    | "kv-prod"
+    | undefined;
 
   // Validate passed preset if any
   if (preset && !["none", "basic", "kv-basic", "kv-prod"].includes(preset)) {
@@ -45,7 +52,10 @@ export async function initAction(options: { yes?: boolean; store?: string; prese
         message: "Select an initialization preset:",
         options: [
           { name: "None (Config only, no routes)", value: "none" },
-          { name: "Basic (Memory Store, Simple Auth Templates)", value: "basic" },
+          {
+            name: "Basic (Memory Store, Simple Auth Templates)",
+            value: "basic",
+          },
           {
             name: "KV Basic (Deno KV, Simple Auth Templates)",
             value: "kv-basic",
@@ -261,13 +271,14 @@ async function patchMainTs() {
 
     const importStmt = 'import { session } from "./config/session.ts";';
     const middlewareUsage = "app.use(session);";
-    
+
     // 1. Check/Add Import
     if (!content.includes(importStmt)) {
       const lastImportMatch = content.match(/import.*;\n(?!import)/);
       if (lastImportMatch) {
         const idx = lastImportMatch.index! + lastImportMatch[0].length;
-        content = content.slice(0, idx) + importStmt + "\n" + content.slice(idx);
+        content = content.slice(0, idx) + importStmt + "\n" +
+          content.slice(idx);
       } else {
         content = importStmt + "\n" + content;
       }
@@ -296,7 +307,7 @@ async function patchMainTs() {
         );
       }
     } else {
-       console.log("Middleware usage already exists in main.ts");
+      console.log("Middleware usage already exists in main.ts");
     }
 
     if (patched) {
