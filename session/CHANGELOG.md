@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.0
+
+### Features
+
+- **Session Security**: Added optional User-Agent validation and IP address
+  tracking.
+  - `trackUserAgent: true`: Validates user agent on every request. Mismatches
+    invalidate the session.
+  - `trackIp: true`: Tracks client IP address (via `ctx.remoteAddr`).
+  - `trackIp: { header: "..." }`: Tracks IP from a specific header (e.g., for
+    proxies).
+
+### Improvements
+
+- **Templates**: Added navigation links between Login and Register pages in all
+  auth templates.
+
 ## 0.2.0
 
 ### Breaking Changes
