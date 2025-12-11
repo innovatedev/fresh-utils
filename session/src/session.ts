@@ -135,6 +135,17 @@ export interface SessionOptions<UserType = unknown> {
     userId: string | undefined,
     session: SessionData,
   ) => Promise<UserType | undefined> | UserType | undefined;
+  /**
+   * Whether to track and validate the User-Agent string.
+   * If enabled, sessions will be invalidated if the User-Agent changes.
+   */
+  trackUserAgent?: boolean;
+  /**
+   * Whether to track the client IP address.
+   * If true, uses `ctx.remoteAddr`.
+   * If an object with `header` is provided, likely for proxies, uses that header.
+   */
+  trackIp?: boolean | { header: string };
 }
 
 /** Internal structure for stored sessions. */
@@ -142,6 +153,8 @@ interface StoredSession {
   data: SessionData;
   flash: Record<string, unknown>;
   userId?: string;
+  ua?: string;
+  ip?: string;
   lastSeenAt: number;
 }
 
@@ -168,18 +181,54 @@ export function createSessionMiddleware<
   const cookiePath = cookieOptions.path || "/";
   const cookieHttpOnly = cookieOptions.httpOnly ?? true;
   const cookieSecure = cookieOptions.secure ?? true;
-  const cookieSameSite = cookieOptions.sameSite ?? "Lax" as Cookie["sameSite"];
+  const cookieSameSite = options.cookie?.sameSite ??
+    "Lax" as Cookie["sameSite"];
   const sessionExpiry = options.expiry;
 
   return async (ctx: Context<AppState>) => {
     const cookies = getCookies(ctx.req.headers);
     let sessionId: string | undefined = cookies[cookieName];
 
+    // Capture Client Signals
+    let currentUa: string | undefined;
+    if (options.trackUserAgent) {
+      currentUa = ctx.req.headers.get("user-agent") || undefined;
+    }
+
+    let currentIp: string | undefined;
+    if (options.trackIp) {
+      if (typeof options.trackIp === "object" && options.trackIp.header) {
+        currentIp = ctx.req.headers.get(options.trackIp.header) || undefined;
+      } else {
+        // Fallback to remoteAddr
+        const addr = ctx.info.remoteAddr as Deno.NetAddr;
+        currentIp = addr.hostname;
+      }
+    }
+
     // Internal state
     let storedSession: StoredSession = {
       data: {},
       flash: {},
       lastSeenAt: Date.now(),
+      ua: currentUa,
+      ip: currentIp,
+    };
+
+    const logout = async () => {
+      if (sessionId) {
+        await options.store.delete(sessionId);
+      }
+      sessionId = crypto.randomUUID();
+      ctx.state.sessionId = sessionId;
+      ctx.state.session = {};
+      storedSession = {
+        data: {},
+        flash: {},
+        lastSeenAt: Date.now(),
+        ua: currentUa,
+        ip: currentIp,
+      };
     };
 
     if (sessionId) {
@@ -188,9 +237,18 @@ export function createSessionMiddleware<
         // Check if it's the new structure
         if (typeof raw === "object" && "data" in raw && "flash" in raw) {
           storedSession = raw as StoredSession;
+
+          // Validation
+          if (options.trackUserAgent && storedSession.ua !== currentUa) {
+            // Invalid UA, logout the user/terminate the session
+            await logout();
+          }
         } else {
           // Migration: Treat flat object as data
           storedSession.data = raw as SessionData;
+          // Hydrate tracking info for migrated session
+          storedSession.ua = currentUa;
+          storedSession.ip = currentIp;
         }
       } else {
         // Invalid session ID (expired or fake)
@@ -246,17 +304,7 @@ export function createSessionMiddleware<
       ctx.state.session = storedSession.data;
     };
 
-    ctx.state.logout = async () => {
-      await options.store.delete(sessionId!);
-      sessionId = crypto.randomUUID();
-      ctx.state.sessionId = sessionId;
-      ctx.state.session = {};
-      storedSession = {
-        data: {},
-        flash: {},
-        lastSeenAt: Date.now(),
-      };
-    };
+    ctx.state.logout = logout;
 
     // User Resolution
     if (options.resolveUser) {
@@ -304,6 +352,11 @@ export function createSessionMiddleware<
 
     // 2. Update System Fields
     storedSession.lastSeenAt = Date.now();
+    // Ensure accurate tracking on save (in case of rotation or migration)
+    if (options.trackUserAgent) storedSession.ua = currentUa;
+    if (options.trackIp) storedSession.ip = currentIp;
+
+    // UserId persisted from check or login
     // UserId persisted from check or login
 
     // Save

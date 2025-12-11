@@ -149,3 +149,124 @@ Deno.test("Integration: Session persistence real flow", async (t) => {
     expect(ctx5.state.sessionId).toEqual(newSessionId);
   });
 });
+
+Deno.test("Integration: Session Security (UA/IP)", async (t) => {
+  const store = new MemorySessionStorage();
+  const options = {
+    store,
+    trackUserAgent: true,
+    trackIp: true, // Uses remoteAddr by default
+  };
+  const middleware = createSessionMiddleware(options);
+
+  let savedId: string;
+
+  await t.step("Step 1: Create Session with UA/IP", async () => {
+    const ctx: any = {
+      req: new Request("http://localhost/", {
+        headers: { "User-Agent": "Chrome/9000" },
+      }),
+      info: {
+        remoteAddr: { hostname: "1.2.3.4", port: 1234, transport: "tcp" },
+      },
+      state: {},
+      next: () => {
+        ctx.state.session.foo = "bar";
+        return Promise.resolve(new Response("OK"));
+      },
+    };
+
+    const res = await middleware(ctx);
+    const cookies = getSetCookies(res.headers);
+    savedId = cookies.find((c) => c.name === "sessionId")!.value;
+
+    expect(savedId).toBeDefined();
+
+    // Verify internally that it's stored (white-box test via store)
+    const stored = await store.get(savedId) as any;
+    expect(stored.ua).toEqual("Chrome/9000");
+    expect(stored.ip).toEqual("1.2.3.4");
+  });
+
+  await t.step("Step 2: Validate UA Match (Success)", async () => {
+    const ctx: any = {
+      req: new Request("http://localhost/", {
+        headers: {
+          "Cookie": `sessionId=${savedId}`,
+          "User-Agent": "Chrome/9000",
+        },
+      }),
+      info: {
+        remoteAddr: { hostname: "1.2.3.4", port: 1234, transport: "tcp" },
+      },
+      state: {},
+      next: () => Promise.resolve(new Response("OK")),
+    };
+
+    await middleware(ctx);
+    // Session should be preserved
+    expect(ctx.state.sessionId).toEqual(savedId);
+    expect(ctx.state.session.foo).toEqual("bar");
+  });
+
+  await t.step("Step 3: Validate UA Mismatch (Invalidation)", async () => {
+    const ctx: any = {
+      req: new Request("http://localhost/", {
+        headers: {
+          "Cookie": `sessionId=${savedId}`,
+          "User-Agent": "Firefox/1", // Different
+        },
+      }),
+      info: {
+        remoteAddr: { hostname: "1.2.3.4", port: 1234, transport: "tcp" },
+      },
+      state: {},
+      next: () => Promise.resolve(new Response("OK")),
+    };
+
+    const res = await middleware(ctx);
+    const cookies = getSetCookies(res.headers);
+    const newId = cookies.find((c) => c.name === "sessionId")!.value;
+
+    // Should receive NEW session ID
+    expect(newId).not.toEqual(savedId);
+    expect(ctx.state.session).toEqual({}); // Empty
+  });
+});
+
+Deno.test("Integration: Session Security (Custom IP Header)", async (t) => {
+  const store = new MemorySessionStorage();
+  const options = {
+    store,
+    trackIp: { header: "X-Forwarded-For" },
+  };
+  const middleware = createSessionMiddleware(options);
+
+  await t.step("Step 1: Capture IP from Header", async () => {
+    const ctx: any = {
+      req: new Request("http://localhost/", {
+        headers: { "X-Forwarded-For": "203.0.113.195" },
+      }),
+      info: {
+        remoteAddr: { hostname: "1.2.3.4", port: 1234, transport: "tcp" },
+      }, // Should be ignored
+      state: {},
+      next: () => {
+        ctx.state.session.foo = "bar";
+        return Promise.resolve(new Response("OK"));
+      },
+    };
+
+    const res = await middleware(ctx);
+    const cookies = getSetCookies(res.headers);
+    const savedId = cookies.find((c) => c.name === "sessionId")!.value;
+
+    expect(savedId).toBeDefined();
+
+    // Verify internally
+    const stored = await store.get(savedId) as any;
+    expect(stored.ip).toEqual("203.0.113.195");
+    // Should NOT match the remoteAddr
+    expect(stored.ip).not.toEqual("1.2.3.4");
+  });
+});
