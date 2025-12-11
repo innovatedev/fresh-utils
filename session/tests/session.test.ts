@@ -117,4 +117,35 @@ Deno.test("Integration: Session persistence real flow", async (t) => {
     // 2. State should be empty (new session)
     expect(ctx4.state.session).toEqual({});
   });
+
+  await t.step("Step 5: Logout", async () => {
+    // Reuse savedSessionId if available, or just mock one since logout shouldn't care
+    const oldId = savedSessionId || "some-old-id";
+    const ctx5: any = {
+      req: new Request("http://localhost/", {
+        headers: { Cookie: `sessionId=${oldId}` },
+      }),
+      state: {},
+      next: () => {
+        ctx5.state.logout();
+        return Promise.resolve(new Response("Logged out"));
+      },
+    };
+
+    const res5 = await sessionMiddleware(ctx5);
+    const cookies = getSetCookies(res5.headers);
+    const sessionCookie = cookies.find((c) => c.name === "sessionId");
+
+    // The cookie should NOT be empty (cleared), but should be a NEW valid session
+    expect(sessionCookie).toBeDefined();
+    const newSessionId = sessionCookie!.value;
+
+    expect(newSessionId).toBeTruthy(); // Not empty string
+    expect(newSessionId).not.toEqual(oldId); // Rotated
+    expect(newSessionId!.length).toBeGreaterThan(10); // Valid UUID-ish
+
+    // State should be reset
+    expect(ctx5.state.session).toEqual({});
+    expect(ctx5.state.sessionId).toEqual(newSessionId);
+  });
 });

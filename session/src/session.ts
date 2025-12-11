@@ -1,5 +1,5 @@
 import type { Context } from "fresh";
-import { getCookies, setCookie } from "@std/http/cookie";
+import { type Cookie, getCookies, setCookie } from "@std/http/cookie";
 
 /**
  * Arbitrary session data storage.
@@ -168,7 +168,7 @@ export function createSessionMiddleware<
   const cookiePath = cookieOptions.path || "/";
   const cookieHttpOnly = cookieOptions.httpOnly ?? true;
   const cookieSecure = cookieOptions.secure ?? true;
-  const cookieSameSite = cookieOptions.sameSite ?? "Lax";
+  const cookieSameSite = cookieOptions.sameSite ?? "Lax" as Cookie["sameSite"];
   const sessionExpiry = options.expiry;
 
   return async (ctx: Context<AppState>) => {
@@ -248,7 +248,8 @@ export function createSessionMiddleware<
 
     ctx.state.logout = async () => {
       await options.store.delete(sessionId!);
-      sessionId = undefined; // Will prevent saving
+      sessionId = crypto.randomUUID();
+      ctx.state.sessionId = sessionId;
       ctx.state.session = {};
       storedSession = {
         data: {},
@@ -275,20 +276,6 @@ export function createSessionMiddleware<
     }
 
     const response = await ctx.next();
-
-    // If logout was called, clear cookie and return
-    if (!sessionId) {
-      setCookie(response.headers, {
-        name: cookieName,
-        value: "",
-        path: cookiePath,
-        httpOnly: cookieHttpOnly,
-        secure: cookieSecure,
-        sameSite: cookieSameSite,
-        maxAge: 0,
-      });
-      return response;
-    }
 
     // Session rotation logic
     // If ctx.state.sessionId was modified manually (and doesn't match our tracked sessionId from login/init),
