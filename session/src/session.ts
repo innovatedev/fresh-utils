@@ -1,4 +1,4 @@
-import { type Context, createDefine } from "fresh";
+import type { Context } from "fresh";
 import { getCookies, setCookie } from "@std/http/cookie";
 
 /**
@@ -6,20 +6,8 @@ import { getCookies, setCookie } from "@std/http/cookie";
  *
  * This type is used to type the session object in `ctx.state.session`.
  * It is extensible by default to allow any JSON-serializable data.
- *
- * @example
- * ```ts
- * // Extend for type safety
- * interface MySession extends SessionData {
- *   userId: string;
- *   cartId?: string;
- * }
- * ```
  */
 export type SessionData = {
-  name?: string;
-  age?: number;
-  admin?: boolean;
   // Allow other properties for flexibility or specific test cases
   [key: string]: unknown;
 };
@@ -32,39 +20,70 @@ export type SessionData = {
  * @template UserType The type of the user object resolved by `resolveUser`.
  */
 export type State<UserType = unknown> = {
-  /** The session data object. */
+  /** The session data object. Accessing or modifying this affects only the user-space data. */
   session: SessionData;
   /** The unique session identifier. */
   sessionId: string;
   /** The resolved user object (if configured). */
   user?: UserType;
+
+  /**
+   * Log in a user.
+   *
+   * This rotates the session ID for security, sets the user ID system field,
+   * and initializes the session data.
+   *
+   * @param userId The unique identifier for the user.
+   * @param data Optional initial session data.
+   */
+  login(userId: string, data?: SessionData): Promise<void>;
+
+  /**
+   * Log out the current user.
+   *
+   * Destroys the current session, clears the cookie, and resets the state.
+   */
+  logout(): Promise<void>;
+
+  /**
+   * Get a flash message by key, consuming it (it will be removed after this request).
+   *
+   * @param key The key of the flash message.
+   */
+  flash(key: string): unknown;
+
+  /**
+   * Set a flash message for the next request.
+   *
+   * @param key The key of the flash message.
+   * @param value The value to store.
+   */
+  flash(key: string, value: unknown): void;
+
+  /**
+   * Check if a flash message exists without consuming it.
+   *
+   * @param key The key of the flash message.
+   */
+  hasFlash(key: string): boolean;
 };
 
 /**
  * Interface for session storage backends.
- *
- * Implement this interface to create custom session stores (e.g., Redis, Postgres).
  */
 export interface SessionStorage {
-  /**
-   * Retrieve session data by ID.
-   * @param sessionId The session ID to look up.
-   * @returns The session data if found, or undefined.
-   */
   get(
     sessionId: string,
-  ): Promise<SessionData | undefined> | SessionData | undefined;
-  /**
-   * Save session data.
-   * @param sessionId The session ID to save.
-   * @param data The session data to store.
-   */
-  set(sessionId: string, data: SessionData): Promise<void> | void;
-  /**
-   * Delete a session by ID.
-   * @param sessionId The session ID to delete.
-   */
+  ): Promise<unknown | undefined> | unknown | undefined;
+  set(sessionId: string, data: unknown): Promise<void> | void;
   delete(sessionId: string): Promise<void> | void;
+  /**
+   * Optional method to resolve a user from the session ID or other stored data.
+   * This allows the store to handle user fetching logic (e.g. from KV).
+   */
+  resolveUser?(
+    userId: string,
+  ): Promise<unknown | undefined> | unknown | undefined;
 }
 
 /**
@@ -73,72 +92,48 @@ export interface SessionStorage {
  * @template UserType The type of the resolved user object.
  */
 export interface SessionOptions<UserType = unknown> {
-  /** The storage backend instance (e.g., MemorySessionStorage, DenoKvSessionStorage). */
+  /** The storage backend instance. */
   store: SessionStorage;
   /** Configuration for the session cookie. */
   cookie?: {
-    /** Cookie name (default: "sessionId"). */
     name?: string;
-    /** Cookie path (default: "/"). */
     path?: string;
-    /** Cookie domain. */
     domain?: string;
-    /** Secure flag (default: true). */
     secure?: boolean;
-    /** HttpOnly flag (default: true). */
     httpOnly?: boolean;
-    /** SameSite attribute (default: "Lax"). */
     sameSite?: "Strict" | "Lax" | "None";
-    /** MaxAge in seconds. */
     maxAge?: number;
   };
-  /**
-   * Session expiry in seconds.
-   * If set, this will be used for the cookie maxAge (if not explicitly set in cookie options)
-   * and potentially for the store if supported.
-   */
+  /** Session expiry in seconds. */
   expiry?: number;
   /**
    * Optional callback to resolve a user object from the session data.
-   * The result will be available in ctx.state.user.
    *
+   * @param userId The user ID stored in the system fields.
    * @param session The current session data.
-   * @returns A promise resolving to the user object, or the user object directly.
    */
   resolveUser?: (
+    userId: string | undefined,
     session: SessionData,
   ) => Promise<UserType | undefined> | UserType | undefined;
 }
 
-const define = createDefine<State>();
+/** Internal structure for stored sessions. */
+interface StoredSession {
+  data: SessionData;
+  flash: Record<string, unknown>;
+  userId?: string;
+  lastSeenAt: number;
+}
 
-/**
- * Creates the session middleware.
- *
- * This function returns a Fresh middleware that handles session hydration,
- * persistence, and cookie management.
- *
- * @template UserType The type of the user object to resolve.
- * @param options Configuration options for the middleware.
- * @returns A Fresh middleware function.
- *
- * @example
- * ```ts
- * // config/session.ts
- * import { createSessionMiddleware } from "@innovatedev-fresh/session";
- * import { DenoKvSessionStorage } from "@innovatedev-fresh/session/kv-store";
- *
- * const kv = await Deno.openKv();
- *
- * export const sessionMiddleware = createSessionMiddleware({
- *   store: new DenoKvSessionStorage(kv),
- *   cookie: { name: "mysession", secure: true },
- * });
- * ```
- */
-export function createSessionMiddleware<UserType = unknown>(
+
+
+export function createSessionMiddleware<
+  AppState extends State = State,
+  UserType = unknown,
+>(
   options: SessionOptions<UserType>,
-): (ctx: Context<State>) => Promise<Response> {
+): (ctx: Context<AppState>) => Promise<Response> {
   const cookieOptions = options.cookie || {};
   const cookieName = cookieOptions.name || "sessionId";
   const cookiePath = cookieOptions.path || "/";
@@ -147,44 +142,157 @@ export function createSessionMiddleware<UserType = unknown>(
   const cookieSameSite = cookieOptions.sameSite ?? "Lax";
   const sessionExpiry = options.expiry;
 
-  return define.middleware(async (ctx: Context<State>) => {
+  return async (ctx: Context<AppState>) => {
     const cookies = getCookies(ctx.req.headers);
-    let sessionId = cookies[cookieName];
-    let sessionData: SessionData | undefined;
+    let sessionId: string | undefined = cookies[cookieName];
+
+    // Internal state
+    let storedSession: StoredSession = {
+      data: {},
+      flash: {},
+      lastSeenAt: Date.now(),
+    };
 
     if (sessionId) {
-      sessionData = await options.store.get(sessionId);
+      const raw = await options.store.get(sessionId);
+      if (raw) {
+        // Check if it's the new structure
+        if (typeof raw === "object" && "data" in raw && "flash" in raw) {
+          storedSession = raw as StoredSession;
+        } else {
+          // Migration: Treat flat object as data
+          storedSession.data = raw as SessionData;
+        }
+      } else {
+        // Invalid session ID (expired or fake)
+        sessionId = undefined;
+      }
     }
 
-    if (!sessionData) {
+    if (!sessionId) {
       sessionId = crypto.randomUUID();
-      sessionData = {};
     }
 
     const initialSessionId = sessionId;
 
-    ctx.state.session = sessionData;
-    ctx.state.sessionId = sessionId;
+    // Helper to rotate session
+    const rotateSession = async () => {
+      await options.store.delete(initialSessionId);
+      sessionId = crypto.randomUUID();
+      ctx.state.sessionId = sessionId;
+    };
 
-    // Resolve user if callback provided and we have session data (even empty, though typically user data is needed)
-    if (options.resolveUser && sessionData) {
-      ctx.state.user = await options.resolveUser(sessionData);
+    // Populate State
+    ctx.state.sessionId = sessionId;
+    ctx.state.session = storedSession.data;
+
+    // Implement Flash API
+    // We need to track consumed flash messages to remove them on save
+    const consumedFlash = new Set<string>();
+    const newFlash: Record<string, unknown> = {};
+
+    ctx.state.flash = (key: string, value?: unknown): unknown => {
+      if (value === undefined) {
+        // Get
+        if (key in storedSession.flash) {
+          consumedFlash.add(key);
+          return storedSession.flash[key];
+        }
+        return undefined;
+      } else {
+        // Set
+        newFlash[key] = value;
+      }
+    };
+
+    ctx.state.hasFlash = (key: string): boolean => {
+      return key in storedSession.flash || key in newFlash;
+    };
+
+    // Implement Login/Logout
+    ctx.state.login = async (userId: string, data?: SessionData) => {
+      await rotateSession();
+      storedSession.userId = userId;
+      storedSession.data = data || {};
+      ctx.state.session = storedSession.data;
+    };
+
+    ctx.state.logout = async () => {
+      await options.store.delete(sessionId!);
+      sessionId = undefined; // Will prevent saving
+      ctx.state.session = {};
+      storedSession = {
+        data: {},
+        flash: {},
+        lastSeenAt: Date.now(),
+      };
+    };
+
+    // User Resolution
+    if (options.resolveUser) {
+      const resolved = await options.resolveUser(
+        storedSession.userId,
+        storedSession.data,
+      );
+      if (resolved) {
+        ctx.state.user = resolved as unknown as AppState["user"];
+      }
+    } else if (storedSession.userId && options.store.resolveUser) {
+      // Fallback to store resolution
+      const resolved = await options.store.resolveUser(storedSession.userId);
+      if (resolved) {
+        ctx.state.user = resolved as unknown as AppState["user"];
+      }
     }
 
     const response = await ctx.next();
 
-    if (ctx.state.sessionId !== initialSessionId) {
-      // Session rotation detected
-      await options.store.delete(initialSessionId);
-      // Force a new secure ID
-      sessionId = crypto.randomUUID();
-      ctx.state.sessionId = sessionId;
+    // If logout was called, clear cookie and return
+    if (!sessionId) {
+      setCookie(response.headers, {
+        name: cookieName,
+        value: "",
+        path: cookiePath,
+        httpOnly: cookieHttpOnly,
+        secure: cookieSecure,
+        sameSite: cookieSameSite,
+        maxAge: 0,
+      });
+      return response;
     }
 
-    // Save session data
-    await options.store.set(sessionId, ctx.state.session);
+    // Session rotation logic
+    // If ctx.state.sessionId was modified manually (and doesn't match our tracked sessionId from login/init),
+    // we interpret this as a request to rotate, but we enforce a secure random ID.
+    if (ctx.state.sessionId !== sessionId) {
+      await rotateSession();
+    }
 
-    // Set cookie
+    // Prepare data for save
+    // 1. Remove consumed flash messages from stored
+    const performFlashCleanup = () => {
+      const nextFlash: Record<string, unknown> = {};
+      // Keep unconsumed old flash
+      for (const [k, v] of Object.entries(storedSession.flash)) {
+        if (!consumedFlash.has(k)) {
+          nextFlash[k] = v;
+        }
+      }
+      // Add new flash
+      for (const [k, v] of Object.entries(newFlash)) {
+        nextFlash[k] = v;
+      }
+      storedSession.flash = nextFlash;
+    };
+    performFlashCleanup();
+
+    // 2. Update System Fields
+    storedSession.lastSeenAt = Date.now();
+    // UserId persisted from check or login
+
+    // Save
+    await options.store.set(sessionId, storedSession);
+
     setCookie(response.headers, {
       name: cookieName,
       value: sessionId,
@@ -196,5 +304,5 @@ export function createSessionMiddleware<UserType = unknown>(
     });
 
     return response;
-  });
+  };
 }

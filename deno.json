@@ -2,7 +2,47 @@
   "workspace": [
     "./session"
   ],
+  "tasks": {
+    "check": "deno fmt --check && deno check **/src && deno lint **/src && deno test -A"
+  },
   "unstable": [
     "kv"
-  ]
+  ],
+  "imports": {
+    "preact": "npm:preact@^10.27.2",
+    "@felix/argon2": "jsr:@felix/argon2@^3.0.2",
+    "@innovatedev-fresh/session": "./session/src/mod.ts",
+    "@innovatedev-fresh/session/kv-store": "./session/src/stores/kv.ts",
+    "@innovatedev-fresh/session/memory-store": "./session/src/stores/memory.ts"
+  },
+  "compilerOptions": {
+    "lib": [
+      "dom",
+      "dom.asynciterable",
+      "dom.iterable",
+      "deno.ns",
+      "deno.unstable"
+    ],
+    "jsx": "precompile",
+    "jsxImportSource": "preact",
+    "jsxPrecompileSkipElements": [
+      "a",
+      "img",
+      "source",
+      "body",
+      "html",
+      "head",
+      "title",
+      "meta",
+      "script",
+      "link",
+      "style",
+      "base",
+      "noscript",
+      "template"
+    ],
+    "types": [
+      "vite/client"
+    ]
+  }
 }

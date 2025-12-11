@@ -1,150 +1,123 @@
 import { Confirm, Select } from "../deps.ts";
 import { join } from "../deps.ts";
 import { jsonc } from "../deps.ts";
-
 const CWD = Deno.cwd();
 
-interface InitOptions {
-  store?: string;
-  yes?: boolean;
+// Helper to read template
+async function readTemplate(path: string): Promise<string> {
+  const url = new URL(`../templates/${path}`, import.meta.url);
+  return await Deno.readTextFile(url);
 }
+
+type DenoJsonConfig = {
+  unstable?: string[];
+  imports?: Record<string, string>;
+};
 
 /**
  * Usage: `deno run -Ar jsr:@innovatedev-fresh/session/init`
  *
  * @param options - Configuration options for the initialization.
  */
-export async function initAction(options: InitOptions) {
+export async function initAction(options: { yes?: boolean; store?: string; preset?: string }) {
   console.log("Initializing session middleware...");
 
   await checkFreshVersion();
 
-  let store = options.store || "memory";
+  let preset = options.preset as "none" | "basic" | "kv-basic" | "kv-prod" | undefined;
 
-  // Interactive store selection if not passed explicitly (Cliffy options might handle default,
-  // but if we want to confirm or offer choice if explicitly unspecified vs default, we check logic here)
-  // For now, if default is memory, we assume user accepts it unless they use interactive mode perhaps?
-  // The command definition sets default to "memory".
-  // If we want to force prompt if not passed, we shouldn't set default in command.
-  // But let's stick to the options. If user wants interactive, maybe we should have not set default.
-  // Actually, let's logic check: if !options.yes, we can ask for confirmation or changes.
-
-  if (!options.yes) {
-    const selectedStore = await Select.prompt({
-      message: "Which session store do you want to use?",
-      options: [
-        { name: "Memory (Simple, good for dev)", value: "memory" },
-        { name: "Deno KV (Persistent, production ready)", value: "kv" },
-      ],
-      default: store === "kv" ? "kv" : "memory",
-    });
-    store = selectedStore;
+  // Validate passed preset if any
+  if (preset && !["none", "basic", "kv-basic", "kv-prod"].includes(preset)) {
+    console.error(`Invalid preset: ${preset}`);
+    console.error("Available presets: none, basic, kv-basic, kv-prod");
+    Deno.exit(1);
   }
+
+  if (!preset) {
+    if (!options.yes) {
+      const selectedPreset = await Select.prompt({
+        message: "Select an initialization preset:",
+        options: [
+          { name: "None (Config only, no routes)", value: "none" },
+          { name: "Basic (Memory Store, Simple Auth Templates)", value: "basic" },
+          {
+            name: "KV Basic (Deno KV, Simple Auth Templates)",
+            value: "kv-basic",
+          },
+          {
+            name: "KV Production (Deno KV, Argon2 + Auth Templates)",
+            value: "kv-prod",
+          },
+        ],
+        default: "none",
+      });
+      preset = selectedPreset as "none" | "basic" | "kv-basic" | "kv-prod";
+    } else {
+      // Default based on store preference if provided or default
+      const store = options.store || "kv";
+      if (store === "kv") {
+        preset = "kv-prod";
+      } else {
+        preset = "basic";
+      }
+      console.log(`Using default preset '${preset}' (store: ${store})`);
+    }
+  }
+
+  // Determine store type based on preset
+  const isKv = preset!.startsWith("kv");
+  const isProd = preset === "kv-prod";
 
   // Define templates based on store
-  let storeImport = "";
-  let storeClass = "";
-  let storeInit = "";
-
-  if (store === "kv") {
-    storeImport =
-      'import { DenoKvSessionStorage } from "@innovatedev-fresh/session/kv-store";';
-    storeClass = "DenoKvSessionStorage";
-    storeInit = "new DenoKvSessionStorage(await Deno.openKv())";
-  } else {
-    storeImport =
-      'import { MemorySessionStorage } from "@innovatedev-fresh/session/memory-store";';
-    storeClass = "MemorySessionStorage";
-    storeInit = "new MemorySessionStorage()";
-  }
-
-  const templates = {
-    config:
-      `import { createSessionMiddleware } from "@innovatedev-fresh/session";
-${storeImport}
-
-export const sessionMiddleware = createSessionMiddleware({
-  store: ${storeInit},
-  cookie: {
-    name: "sessionId",
-    httpOnly: true,
-    secure: true,
-    sameSite: "Lax",
-    // maxAge: 60 * 60 * 24 * 7, // 1 week
-  },
-});
-`,
-    login: `import { define } from "../utils.ts";
-
-export const handler = define.handlers({
-  async POST(ctx) {
-    const form = await ctx.req.formData();
-    const username = form.get("username")?.toString();
-
-    if (username) {
-      // In a real app, verify credentials here!
-      ctx.state.session.data = { username }; 
-      
-      return new Response("", {
-        status: 303,
-        headers: { Location: "/" },
-      });
-    }
-
-    return new Response("", {
-        status: 303,
-        headers: { Location: "/login" },
-    });
-  },
-});
-
-export default define.page<typeof handler>((ctx) => {
-  return (
-    <div class="p-4 mx-auto max-w-screen-md">
-      <h1 class="text-2xl font-bold mb-4">Login</h1>
-      <form method="POST">
-        <input 
-          type="text" 
-          name="username" 
-          placeholder="Enter username" 
-          class="border p-2 rounded mr-2"
-        />
-        <button type="submit" class="bg-blue-500 text-white p-2 rounded">
-          Login
-        </button>
-      </form>
-    </div>
-  );
-});
-`,
-    logout: `import { define } from "../utils.ts";
-
-export const handler = define.handlers({
-  GET(ctx) {
-    // Destroy session
-    ctx.state.session = {}; 
-    
-    return new Response("", {
-      status: 303,
-      headers: { Location: "/" },
-    });
-  },
-});
-`,
-  };
+  const configTemplate = isKv ? "config-kv.ts" : "config-memory.ts";
+  const configContent = await readTemplate(configTemplate);
 
   // 1. Deno JSON Dependency Injection
-  await updateDenoJson(options.yes);
+  await updateDenoJson(options.yes, isProd);
 
   // 1.5. Check for 'unstable' 'kv' config if using KV store
-  if (store === "kv") {
+  if (isKv) {
     await ensureUnstableKv(options.yes);
   }
 
   // 2. Config & Routes
-  await writeFile("config/session.ts", templates.config, options.yes);
-  await writeFile("routes/login.tsx", templates.login, options.yes);
-  await writeFile("routes/logout.ts", templates.logout, options.yes);
+  await writeFile("config/session.ts", configContent, options.yes);
+
+  if (preset !== "none") {
+    const suffix = isProd ? "_prod" : "_basic";
+    // Shared logout
+    await writeFile(
+      "routes/logout.ts",
+      await readTemplate("routes/logout.ts"),
+      options.yes,
+    );
+
+    // Variant login/register
+    let loginContent = await readTemplate(`routes/login${suffix}.tsx`);
+    let registerContent = await readTemplate(`routes/register${suffix}.tsx`);
+
+    if (isProd) {
+      // Uncomment DB logic for production preset
+      loginContent = loginContent
+        .replace(/\/\*|\*\//g, "")
+        .replace(
+          "      // Note: In a real app, do this ONLY after verification passes!\n",
+          "",
+        );
+      registerContent = registerContent.replace(/\/\*|\*\//g, "");
+    }
+
+    await writeFile(
+      "routes/login.tsx",
+      loginContent,
+      options.yes,
+    );
+    await writeFile(
+      "routes/register.tsx",
+      registerContent,
+      options.yes,
+    );
+  }
 
   // 3. Patch Main
   await patchMainTs();
@@ -156,9 +129,9 @@ async function ensureUnstableKv(yes?: boolean) {
   const denoJsonPath = join(CWD, "deno.json");
   try {
     const content = await Deno.readTextFile(denoJsonPath);
-    let config: any;
+    let config: DenoJsonConfig;
     try {
-      config = jsonc.parse(content);
+      config = jsonc.parse(content) as DenoJsonConfig;
     } catch {
       console.warn("Could not parse deno.json to check for 'unstable' config.");
       return;
@@ -176,8 +149,15 @@ async function ensureUnstableKv(yes?: boolean) {
     }
 
     // Need to add it
-    if (!await confirm("Deno KV requires 'kv' to be listed in the 'unstable' config in deno.json. Add it?", yes)) {
-      console.log("Skipping 'unstable' config update. You may need to add it manually.");
+    if (
+      !await confirm(
+        "Deno KV requires 'kv' to be listed in the 'unstable' config in deno.json. Add it?",
+        yes,
+      )
+    ) {
+      console.log(
+        "Skipping 'unstable' config update. You may need to add it manually.",
+      );
       return;
     }
 
@@ -186,7 +166,6 @@ async function ensureUnstableKv(yes?: boolean) {
 
     await Deno.writeTextFile(denoJsonPath, JSON.stringify(config, null, 2));
     console.log("Added 'kv' to 'unstable' in deno.json.");
-
   } catch (e) {
     if (e instanceof Deno.errors.NotFound) {
       // No deno.json, can't update it
@@ -196,7 +175,7 @@ async function ensureUnstableKv(yes?: boolean) {
   }
 }
 
-async function updateDenoJson(yes?: boolean) {
+async function updateDenoJson(_yes?: boolean, includeArgon2 = false) {
   const denoJsonPath = join(CWD, "deno.json");
   try {
     const content = await Deno.readTextFile(denoJsonPath);
@@ -206,26 +185,35 @@ async function updateDenoJson(yes?: boolean) {
     // Warning: This strips comments.
     // The user asked for it to be automated.
 
-    let config: any;
+    let config: DenoJsonConfig;
     try {
-      config = jsonc.parse(content);
-    } catch (e) {
+      config = jsonc.parse(content) as DenoJsonConfig;
+    } catch (_e) {
       console.warn("Could not parse deno.json. Skipping dependency injection.");
       return;
     }
 
     if (!config.imports) config.imports = {};
+    let changed = false;
 
     if (!config.imports["@innovatedev-fresh/session"]) {
       console.log("Adding dependency to deno.json...");
       config.imports["@innovatedev-fresh/session"] =
         "jsr:@innovatedev-fresh/session";
-
-      // Write back.
-      await Deno.writeTextFile(denoJsonPath, JSON.stringify(config, null, 2));
+      changed = true;
       console.log("Updated deno.json imports.");
     } else {
       console.log("Dependency already exists in deno.json.");
+    }
+
+    if (includeArgon2 && !config.imports["@felix/argon2"]) {
+      console.log("Adding @felix/argon2 for password hashing...");
+      config.imports["@felix/argon2"] = "jsr:@felix/argon2";
+      changed = true;
+    }
+
+    if (changed) {
+      await Deno.writeTextFile(denoJsonPath, JSON.stringify(config, null, 2));
     }
   } catch (e) {
     if (e instanceof Deno.errors.NotFound) {
@@ -263,38 +251,51 @@ async function patchMainTs() {
   const mainTsPath = join(CWD, "main.ts");
   try {
     let content = await Deno.readTextFile(mainTsPath);
+    let patched = false;
 
-    if (content.includes("sessionMiddleware")) {
-      console.log(
-        "main.ts seems to already contain sessionMiddleware. Skipping patch.",
-      );
-      return;
-    }
-
-    const importStmt =
-      'import { sessionMiddleware } from "./config/session.ts";';
-    const lastImportMatch = content.match(/import.*;\n(?!import)/);
-
-    if (lastImportMatch) {
-      const idx = lastImportMatch.index! + lastImportMatch[0].length;
-      content = content.slice(0, idx) + importStmt + "\n" + content.slice(idx);
+    const importStmt = 'import { session } from "./config/session.ts";';
+    const middlewareUsage = "app.use(session);";
+    
+    // 1. Check/Add Import
+    if (!content.includes(importStmt)) {
+      const lastImportMatch = content.match(/import.*;\n(?!import)/);
+      if (lastImportMatch) {
+        const idx = lastImportMatch.index! + lastImportMatch[0].length;
+        content = content.slice(0, idx) + importStmt + "\n" + content.slice(idx);
+      } else {
+        content = importStmt + "\n" + content;
+      }
+      console.log("Added import to main.ts");
+      patched = true;
     } else {
-      content = importStmt + "\n" + content;
+      console.log("Import already exists in main.ts");
     }
 
-    const staticFilesUsage = "app.use(staticFiles());";
-    const usageIndex = content.indexOf(staticFilesUsage);
+    // 2. Check/Add Middleware Usage
+    if (!content.includes(middlewareUsage)) {
+      const staticFilesUsage = "app.use(staticFiles());";
+      const usageIndex = content.indexOf(staticFilesUsage);
 
-    if (usageIndex !== -1) {
-      const insertAt = usageIndex + staticFilesUsage.length;
-      content = content.slice(0, insertAt) + "\n\napp.use(sessionMiddleware);" +
-        content.slice(insertAt);
+      if (usageIndex !== -1) {
+        const insertAt = usageIndex + staticFilesUsage.length;
+        const middlewareCode = `\n\n${middlewareUsage}`;
+
+        content = content.slice(0, insertAt) + middlewareCode +
+          content.slice(insertAt);
+        console.log("Added app.use(session) to main.ts");
+        patched = true;
+      } else {
+        console.warn(
+          "Could not auto-patch main.ts (anchor 'app.use(staticFiles());' not found).",
+        );
+      }
+    } else {
+       console.log("Middleware usage already exists in main.ts");
+    }
+
+    if (patched) {
       await Deno.writeTextFile(mainTsPath, content);
-      console.log("Patched main.ts");
-    } else {
-      console.warn(
-        "Could not auto-patch main.ts (anchor 'app.use(staticFiles());' not found).",
-      );
+      console.log("Updated main.ts");
     }
   } catch (err) {
     if (err instanceof Deno.errors.NotFound) {
@@ -320,9 +321,9 @@ async function checkFreshVersion() {
     throw e;
   }
 
-  let config: any;
+  let config: DenoJsonConfig;
   try {
-    config = jsonc.parse(content);
+    config = jsonc.parse(content) as DenoJsonConfig;
   } catch {
     console.error("Error: Could not parse deno.json.");
     Deno.exit(1);

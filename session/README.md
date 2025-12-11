@@ -25,41 +25,56 @@ The easiest way to get started is using the initialization tool:
 deno run -A jsr:@innovatedev-fresh/session/init
 ```
 
+> **Note**: Running with `-y` defaults to the **KV Production** preset (Secure
+> KV Store + Argon2).
+
 This will:
 
 1. Ask you to choose a store (Memory or KV).
 2. Add the dependency to your `deno.json`.
 3. Create `config/session.ts` and auth route templates.
 4. Patch your `main.ts`.
+5. Create login/logout/register routes.
 
 ## Manual Usage
 
-### 1. Create Middleware
+### 1. Configure Session
 
 ```typescript
 // config/session.ts
-import { createSessionMiddleware } from "@innovatedev-fresh/session";
+import {
+  createSessionMiddleware,
+  type SessionOptions,
+} from "@innovatedev-fresh/session";
 import { DenoKvSessionStorage } from "@innovatedev-fresh/session/kv-store";
+// Assuming you have a State interface defined
+import type { State } from "../utils.ts";
 
-const kv = await Deno.openKv();
-
-export const sessionMiddleware = createSessionMiddleware({
-  store: new DenoKvSessionStorage(kv),
+export const sessionConfig: SessionOptions = {
+  // Automatically opens KV and defaults to "session" prefix
+  store: new DenoKvSessionStorage({
+    expireAfter: 60 * 60 * 24 * 7, // 1 week
+    // Enable optional built-in user resolution:
+    // userKeyPrefix: ["users"],
+  }),
   cookie: {
     name: "sessionId",
     sameSite: "Lax",
     secure: true,
   },
-});
+};
+
+// Generics provide type safety for your AppState
+export const session = createSessionMiddleware<State>(sessionConfig);
 ```
 
 ### 2. Register in `main.ts`
 
 ```typescript
-import { sessionMiddleware } from "./config/session.ts";
+import { session } from "./config/session.ts";
 
 // ...
-app.use(sessionMiddleware);
+app.use(session);
 // ...
 ```
 
@@ -67,10 +82,17 @@ app.use(sessionMiddleware);
 
 ```typescript
 export const handler = define.handlers({
-  GET(ctx) {
-    const session = ctx.state.session;
-    session.foo = "bar"; // Set data
-    return new Response(`Session ID: ${ctx.state.sessionId}`);
+  async GET(ctx) {
+    // Session data is fully typed (assuming State is generic)
+    ctx.state.session.set("foo", "bar");
+
+    // Flash messages (one-time messages)
+    ctx.state.flash("success", "Operation successful!");
+
+    // User login (sets session user ID and rotates session)
+    await ctx.state.login("user_123");
+
+    return ctx.render();
   },
 });
 ```

@@ -23,8 +23,9 @@ if (import.meta.main) {
     .version("0.1.0")
     .description("Initialize session middleware for Fresh")
     .option("-s, --store <store:string>", "Store type (memory, kv)", {
-      default: "memory",
+      default: "kv",
     })
+    .option("-p, --preset <preset:string>", "Preset (none, basic, kv-basic, kv-prod)")
     .option("-y, --yes", "Skip prompts and use defaults/arguments")
     .action(initAction)
     .parse(Deno.args);

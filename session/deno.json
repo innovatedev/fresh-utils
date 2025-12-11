@@ -1,6 +1,9 @@
 {
   "name": "@innovatedev-fresh/session",
-  "version": "0.1.5",
+  "version": "0.2.0",
+  "tasks": {
+    "check": "deno fmt --check && deno check ./src && deno lint ./src && deno test -A ./src"
+  },
   "exports": {
     ".": "./src/mod.ts",
     "./memory-store": "./src/stores/memory.ts",

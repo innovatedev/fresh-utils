@@ -17,3 +17,5 @@
  * ```
  */
 export * from "./session.ts";
+export { DenoKvSessionStorage } from "./stores/kv.ts";
+export { MemorySessionStorage } from "./stores/memory.ts";

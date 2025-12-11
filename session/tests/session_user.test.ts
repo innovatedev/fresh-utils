@@ -1,5 +1,5 @@
 import { expect } from "./deps.ts";
-import { createSessionMiddleware } from "../src/mod.ts";
+import { createSessionMiddleware, State } from "../src/mod.ts";
 import { MemorySessionStorage } from "../src/stores/memory.ts";
 
 Deno.test("Integration: Session User Resolution", async (t) => {
@@ -13,21 +13,26 @@ Deno.test("Integration: Session User Resolution", async (t) => {
 
   const sessionStore = new MemorySessionStorage();
 
-  const middleware = createSessionMiddleware<User>({
+  const middleware = createSessionMiddleware<State<User>, User>({
     store: sessionStore,
-    resolveUser: (session) => {
-      // Logic: if session has userId, look it up
-      if (typeof session.userId === "string") {
-        return users[session.userId];
+    resolveUser: (userId) => {
+      // Logic: if session has userId (system field), look it up
+      if (userId && typeof userId === "string") {
+        return users[userId];
       }
       return undefined;
     },
   });
 
   await t.step("Resolves user from session data", async () => {
-    // 1. Manually seed a session with a userId
+    // 1. Manually seed a session with a userId (using internal structure)
     const sessionId = "session-123";
-    await sessionStore.set(sessionId, { userId: "u1" });
+    await sessionStore.set(sessionId, {
+      data: {},
+      flash: {},
+      userId: "u1",
+      lastSeenAt: Date.now(),
+    });
 
     // 2. Make a request with that session ID
     const ctx: any = {
@@ -49,7 +54,11 @@ Deno.test("Integration: Session User Resolution", async (t) => {
   await t.step("Handles missing user gracefully", async () => {
     // 1. Session exists but no userId
     const sessionId = "session-456";
-    await sessionStore.set(sessionId, { some: "data" });
+    await sessionStore.set(sessionId, {
+      data: { some: "data" },
+      flash: {},
+      lastSeenAt: Date.now(),
+    });
 
     const ctx: any = {
       req: new Request("http://localhost/", {
@@ -67,7 +76,12 @@ Deno.test("Integration: Session User Resolution", async (t) => {
   await t.step("Handles non-existent user ID", async () => {
     // 1. Session has invalid userId
     const sessionId = "session-789";
-    await sessionStore.set(sessionId, { userId: "unknown_id" });
+    await sessionStore.set(sessionId, {
+      data: {},
+      flash: {},
+      userId: "unknown_id",
+      lastSeenAt: Date.now(),
+    });
 
     const ctx: any = {
       req: new Request("http://localhost/", {
