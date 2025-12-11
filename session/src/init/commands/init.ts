@@ -6,7 +6,13 @@ const CWD = Deno.cwd();
 // Helper to read template
 async function readTemplate(path: string): Promise<string> {
   const url = new URL(`../templates/${path}`, import.meta.url);
-  return await Deno.readTextFile(url);
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(
+      `Failed to read template '${path}': ${res.status} ${res.statusText}`,
+    );
+  }
+  return await res.text();
 }
 
 type DenoJsonConfig = {

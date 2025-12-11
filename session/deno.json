@@ -1,6 +1,6 @@
 {
   "name": "@innovatedev-fresh/session",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "tasks": {
     "check": "deno fmt --check && deno check ./src && deno lint ./src && deno test -A ./src"
   },

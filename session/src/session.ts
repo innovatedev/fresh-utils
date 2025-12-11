@@ -72,10 +72,29 @@ export type State<UserType = unknown> = {
  * Interface for session storage backends.
  */
 export interface SessionStorage {
+  /**
+   * Retrieve session data by session ID.
+   *
+   * @param sessionId The unique session identifier.
+   * @returns The session data, or undefined if not found/expired.
+   */
   get(
     sessionId: string,
   ): Promise<unknown | undefined> | unknown | undefined;
+
+  /**
+   * Persist session data.
+   *
+   * @param sessionId The unique session identifier.
+   * @param data The session data to store.
+   */
   set(sessionId: string, data: unknown): Promise<void> | void;
+
+  /**
+   * Delete a session.
+   *
+   * @param sessionId The unique session identifier to remove.
+   */
   delete(sessionId: string): Promise<void> | void;
   /**
    * Optional method to resolve a user from the session ID or other stored data.
@@ -128,6 +147,18 @@ interface StoredSession {
 
 
 
+/**
+ * Creates the session middleware.
+ *
+ * This middleware handles session retrieval, rotation, and persistence.
+ * It also populates `ctx.state.session` and other session-related properties.
+ *
+ * @template AppState The application state type (must extend `State`).
+ * @template UserType The type of the user object (if user resolution is used).
+ *
+ * @param options Configuration options for the middleware.
+ * @returns A Fresh middleware function.
+ */
 export function createSessionMiddleware<
   AppState extends State = State,
   UserType = unknown,
