@@ -15,6 +15,28 @@ async function readTemplate(path: string): Promise<string> {
   return await res.text();
 }
 
+/**
+ * JSR rewrites imports to be relative when publishing.
+ * We need to revert them to package imports for the user's project.
+ */
+function sanitizeImports(content: string): string {
+  return content
+    .replace(/\/\*\* @jsx.*?\*\//g, "")
+    .replace(
+      /from "(\.\.\/)+mod\.ts";/g,
+      'from "@innovatedev-fresh/session";',
+    )
+    .replace(
+      /from "(\.\.\/)+stores\/kv\.ts";/g,
+      'from "@innovatedev-fresh/session/kv-store";',
+    )
+    .replace(
+      /from "(\.\.\/)+stores\/memory\.ts";/g,
+      'from "@innovatedev-fresh/session/memory-store";',
+    )
+    .trimStart();
+}
+
 type DenoJsonConfig = {
   unstable?: string[];
   imports?: Record<string, string>;
@@ -85,8 +107,9 @@ export async function initAction(
   const isProd = preset === "kv-prod";
 
   // Define templates based on store
+  // Define templates based on store
   const configTemplate = isKv ? "config/kv.ts" : "config/memory.ts";
-  const configContent = await readTemplate(configTemplate);
+  const configContent = sanitizeImports(await readTemplate(configTemplate));
 
   // 1. Deno JSON Dependency Injection
   await updateDenoJson(options.yes, isProd);
@@ -104,13 +127,17 @@ export async function initAction(
     // Shared logout
     await writeFile(
       "routes/logout.ts",
-      await readTemplate("routes/logout.ts"),
+      sanitizeImports(await readTemplate("routes/logout.ts")),
       options.yes,
     );
 
     // Variant login/register
-    let loginContent = await readTemplate(`routes/login${suffix}.tsx`);
-    let registerContent = await readTemplate(`routes/register${suffix}.tsx`);
+    let loginContent = sanitizeImports(
+      await readTemplate(`routes/login${suffix}.tsx`),
+    );
+    let registerContent = sanitizeImports(
+      await readTemplate(`routes/register${suffix}.tsx`),
+    );
 
     if (isProd) {
       // Uncomment DB logic for production preset
