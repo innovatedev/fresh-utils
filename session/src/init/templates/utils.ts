@@ -4,4 +4,5 @@
 import { createDefine } from "fresh";
 import type { State } from "../../session.ts";
 
+export type { State };
 export const define = createDefine<State>();

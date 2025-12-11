@@ -85,7 +85,7 @@ export async function initAction(
   const isProd = preset === "kv-prod";
 
   // Define templates based on store
-  const configTemplate = isKv ? "config-kv.ts" : "config-memory.ts";
+  const configTemplate = isKv ? "config/kv.ts" : "config/memory.ts";
   const configContent = await readTemplate(configTemplate);
 
   // 1. Deno JSON Dependency Injection
