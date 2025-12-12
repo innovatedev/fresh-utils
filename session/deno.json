@@ -18,5 +18,10 @@
     "exclude": [
       "tests"
     ]
-  }
+  },
+  "license": "MIT",
+  "tags": [
+    "ai-generated",
+    "ai-assisted"
+  ]
 }

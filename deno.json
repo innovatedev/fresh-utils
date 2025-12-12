@@ -3,12 +3,15 @@
     "./session"
   ],
   "tasks": {
-    "check": "deno fmt --check && deno check **/src && deno lint **/src && deno test -A"
+    "check": "deno fmt --check && deno check **/src && deno lint **/src && deno test -A",
+    "compliance": "deno run -A tools/compliance.ts"
   },
   "unstable": [
     "kv"
   ],
   "imports": {
+    "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
+    "@std/path": "jsr:@std/path@^1.1.3",
     "preact": "npm:preact@^10.27.2",
     "@felix/argon2": "jsr:@felix/argon2@^3.0.2",
     "@innovatedev/fresh-session": "./session/src/mod.ts",
@@ -44,5 +47,10 @@
     "types": [
       "vite/client"
     ]
-  }
+  },
+  "license": "MIT",
+  "tags": [
+    "ai-generated",
+    "ai-assisted"
+  ]
 }

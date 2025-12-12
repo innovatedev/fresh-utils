@@ -1,10 +1,13 @@
-> Archived: moved to
-> [@innovatedev/fresh-session](https://jsr.io/@innovatedev/fresh-session)
-
 # @innovatedev/fresh-session
 
 A flexible, secure session middleware for [Deno Fresh](https://fresh.deno.dev/)
 (v2+).
+
+## AI Transparency
+
+⚠️ This project is primarily AI-assisted (Antigravity, Copilot, Cursor, Gemini,
+ChatGPT, Composer, Claude, Grok); all code is directed, reviewed, and tested by
+humans.
 
 ## Features
 
@@ -134,3 +137,7 @@ Enable `trackIp: true` to store the client's IP address for audit purposes.
 Note: IP addresses are stored but **not validated** on every request. This
 prevents valid users from being logged out when switching networks (e.g. WiFi to
 mobile data).
+
+## Security Issues
+
+Report any security related issues to security@innovate.dev
