@@ -1,3 +1,6 @@
+> Archived: moved to
+> [@innovatedev/fresh-session](https://jsr.io/@innovatedev/fresh-session)
+
 # @innovatedev-fresh/session
 
 A flexible, secure session middleware for [Deno Fresh](https://fresh.deno.dev/)
