@@ -8,7 +8,7 @@
  *
  * @example
  * ```ts
- * import { MemorySessionStorage } from "@innovatedev-fresh/session/memory-store";
+ * import { MemorySessionStorage } from "@innovatedev/fresh-session/memory-store";
  * const store = new MemorySessionStorage();
  * ```
  */

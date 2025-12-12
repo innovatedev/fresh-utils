@@ -1,7 +1,7 @@
 > Archived: moved to
 > [@innovatedev/fresh-session](https://jsr.io/@innovatedev/fresh-session)
 
-# @innovatedev-fresh/session
+# @innovatedev/fresh-session
 
 A flexible, secure session middleware for [Deno Fresh](https://fresh.deno.dev/)
 (v2+).
@@ -18,7 +18,7 @@ A flexible, secure session middleware for [Deno Fresh](https://fresh.deno.dev/)
 ## Installation
 
 ```bash
-deno add jsr:@innovatedev-fresh/session
+deno add jsr:@innovatedev/fresh-session
 ```
 
 ## Quick Start (CLI)
@@ -26,7 +26,7 @@ deno add jsr:@innovatedev-fresh/session
 The easiest way to get started is using the initialization tool:
 
 ```bash
-deno run -A jsr:@innovatedev-fresh/session/init
+deno run -A jsr:@innovatedev/fresh-session/init
 ```
 
 > **Note**: Running with `-y` defaults to the **KV Production** preset (Secure
@@ -49,8 +49,8 @@ This will:
 import {
   createSessionMiddleware,
   type SessionOptions,
-} from "@innovatedev-fresh/session";
-import { DenoKvSessionStorage } from "@innovatedev-fresh/session/kv-store";
+} from "@innovatedev/fresh-session";
+import { DenoKvSessionStorage } from "@innovatedev/fresh-session/kv-store";
 // Assuming you have a State interface defined
 import type { State } from "../utils.ts";
 

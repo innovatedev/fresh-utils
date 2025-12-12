@@ -8,8 +8,8 @@
  *
  * @example
  * ```ts
- * import { createSessionMiddleware } from "@innovatedev-fresh/session";
- * import { MemorySessionStorage } from "@innovatedev-fresh/session/memory-store";
+ * import { createSessionMiddleware } from "@innovatedev/fresh-session";
+ * import { MemorySessionStorage } from "@innovatedev/fresh-session/memory-store";
  *
  * const session = createSessionMiddleware({
  *   store: new MemorySessionStorage(),

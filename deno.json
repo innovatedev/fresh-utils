@@ -11,9 +11,9 @@
   "imports": {
     "preact": "npm:preact@^10.27.2",
     "@felix/argon2": "jsr:@felix/argon2@^3.0.2",
-    "@innovatedev-fresh/session": "./session/src/mod.ts",
-    "@innovatedev-fresh/session/kv-store": "./session/src/stores/kv.ts",
-    "@innovatedev-fresh/session/memory-store": "./session/src/stores/memory.ts"
+    "@innovatedev/fresh-session": "./session/src/mod.ts",
+    "@innovatedev/fresh-session/kv-store": "./session/src/stores/kv.ts",
+    "@innovatedev/fresh-session/memory-store": "./session/src/stores/memory.ts"
   },
   "compilerOptions": {
     "lib": [

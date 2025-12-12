@@ -1,8 +1,8 @@
 import {
   createSessionMiddleware,
   type SessionOptions,
-} from "@innovatedev-fresh/session";
-import { DenoKvSessionStorage } from "@innovatedev-fresh/session/kv-store";
+} from "@innovatedev/fresh-session";
+import { DenoKvSessionStorage } from "@innovatedev/fresh-session/kv-store";
 import type { State } from "../utils.ts";
 
 export const sessionConfig: SessionOptions = {

@@ -24,15 +24,15 @@ function sanitizeImports(content: string): string {
     .replace(/\/\*\* @jsx.*?\*\//g, "")
     .replace(
       /from "(\.\.\/)+mod\.ts";/g,
-      'from "@innovatedev-fresh/session";',
+      'from "@innovatedev/fresh-session";',
     )
     .replace(
       /from "(\.\.\/)+stores\/kv\.ts";/g,
-      'from "@innovatedev-fresh/session/kv-store";',
+      'from "@innovatedev/fresh-session/kv-store";',
     )
     .replace(
       /from "(\.\.\/)+stores\/memory\.ts";/g,
-      'from "@innovatedev-fresh/session/memory-store";',
+      'from "@innovatedev/fresh-session/memory-store";',
     )
     .trimStart();
 }
@@ -43,7 +43,7 @@ type DenoJsonConfig = {
 };
 
 /**
- * Usage: `deno run -Ar jsr:@innovatedev-fresh/session/init`
+ * Usage: `deno run -Ar jsr:@innovatedev/fresh-session/init`
  *
  * @param options - Configuration options for the initialization.
  */
@@ -239,10 +239,10 @@ async function updateDenoJson(_yes?: boolean, includeArgon2 = false) {
     if (!config.imports) config.imports = {};
     let changed = false;
 
-    if (!config.imports["@innovatedev-fresh/session"]) {
+    if (!config.imports["@innovatedev/fresh-session"]) {
       console.log("Adding dependency to deno.json...");
-      config.imports["@innovatedev-fresh/session"] =
-        "jsr:@innovatedev-fresh/session";
+      config.imports["@innovatedev/fresh-session"] =
+        "jsr:@innovatedev/fresh-session";
       changed = true;
       console.log("Updated deno.json imports.");
     } else {

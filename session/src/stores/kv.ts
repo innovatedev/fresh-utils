@@ -8,7 +8,7 @@
  *
  * @example
  * ```ts
- * import { DenoKvSessionStorage } from "@innovatedev-fresh/session/kv-store";
+ * import { DenoKvSessionStorage } from "@innovatedev/fresh-session/kv-store";
  *
  * const kv = await Deno.openKv();
  * const store = new DenoKvSessionStorage(kv);

@@ -3,13 +3,13 @@
  *
  * This module provides the CLI entrypoint for the `init` command.
  *
- * The `init` command automates the setup of `@innovatedev-fresh/session` in a Fresh project
+ * The `init` command automates the setup of `@innovatedev/fresh-session` in a Fresh project
  * by creating configuration files, route handlers, and updating `deno.json`.
  *
  * @example
  * Run directly via Deno:
  * ```bash
- * deno run -A jsr:@innovatedev-fresh/session/init
+ * deno run -A jsr:@innovatedev/fresh-session/init
  * ```
  */
 import { Command } from "./deps.ts";
