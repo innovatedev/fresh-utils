@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.3
+
+### Features
+
+- **Structured KV Support**: Added `KvDexSessionStorage` to support
+  [`@olli/kvdex`](https://github.com/oliver-oloughlin/kvdex).
+  - Enables fully typed and indexed session documents in Deno KV.
+  - Supports using secondary indices for efficient user resolution (e.g.
+    `userIndex: "email"`).
+
+### Improvements
+
+- **Init Script**: The `init` command now dynamically resolves versions.
+  - Dependencies (`argon2`, `kvdex`) are pinned to verified versions in
+    generated configs.
+  - The installed `fresh-session` version now matches the version of the `init`
+    script used.
+- **Documentation**: Added comprehensive JSDoc comments for `kvdex` storage to
+  improve JSR documentation score.
+
 ## 0.3.0
 
 ### Features
