@@ -1,6 +1,6 @@
 {
   "name": "@innovatedev/fresh-session",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "tasks": {
     "check": "deno fmt --check && deno check ./src && deno lint ./src && deno test -A ./tests"
   },
@@ -8,7 +8,8 @@
     ".": "./src/mod.ts",
     "./memory-store": "./src/stores/memory.ts",
     "./kv-store": "./src/stores/kv.ts",
-    "./init": "./src/init/mod.ts"
+    "./init": "./src/init/mod.ts",
+    "./kvdex-store": "./src/stores/kvdex.ts"
   },
   "imports": {
     "fresh": "jsr:@fresh/core@^2.2.0",

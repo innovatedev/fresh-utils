@@ -17,10 +17,12 @@ import { initAction } from "./commands/init.ts";
 
 export { initAction };
 
+import denoConfig from "../../deno.json" with { type: "json" };
+
 if (import.meta.main) {
   await new Command()
     .name("session-init")
-    .version("0.1.0")
+    .version(denoConfig.version)
     .description("Initialize session middleware for Fresh")
     .option("-s, --store <store:string>", "Store type (memory, kv)", {
       default: "kv",

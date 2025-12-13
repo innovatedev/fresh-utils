@@ -37,10 +37,31 @@ function sanitizeImports(content: string): string {
     .trimStart();
 }
 
+import denoConfig from "../../../deno.json" with { type: "json" };
+
 type DenoJsonConfig = {
   unstable?: string[];
   imports?: Record<string, string>;
 };
+
+function getFreshSessionVersion(): string {
+  // 1. Try to extract from import.meta.url (JSR)
+  // URL format: https://jsr.io/@innovatedev/fresh-session/0.3.2/src/init/commands/init.ts
+  const match = import.meta.url.match(/@innovatedev\/fresh-session\/([^/]+)\//);
+  if (match) {
+    return `^${match[1]}`;
+  }
+  // 2. Fallback to deno.json version
+  return `^${denoConfig.version}`;
+}
+
+function getDependencyVersion(pkg: string, fallback: string): string {
+  const imp = denoConfig.imports?.[pkg as keyof typeof denoConfig.imports];
+  if (imp && imp.startsWith("jsr:")) {
+    return imp.split("@").slice(1).join("@") || fallback;
+  }
+  return fallback;
+}
 
 /**
  * Usage: `deno run -Ar jsr:@innovatedev/fresh-session/init`
@@ -59,12 +80,22 @@ export async function initAction(
     | "basic"
     | "kv-basic"
     | "kv-prod"
+    | "kvdex-basic"
+    | "kvdex-prod"
     | undefined;
 
   // Validate passed preset if any
-  if (preset && !["none", "basic", "kv-basic", "kv-prod"].includes(preset)) {
+  const validPresets = [
+    "none",
+    "basic",
+    "kv-basic",
+    "kv-prod",
+    "kvdex-basic",
+    "kvdex-prod",
+  ];
+  if (preset && !validPresets.includes(preset)) {
     console.error(`Invalid preset: ${preset}`);
-    console.error("Available presets: none, basic, kv-basic, kv-prod");
+    console.error(`Available presets: ${validPresets.join(", ")}`);
     Deno.exit(1);
   }
 
@@ -86,14 +117,30 @@ export async function initAction(
             name: "KV Production (Deno KV, Argon2 + Auth Templates)",
             value: "kv-prod",
           },
+          {
+            name: "Kvdex Basic (Structured KV, Simple Auth Templates)",
+            value: "kvdex-basic",
+          },
+          {
+            name: "Kvdex Production (Structured KV, Argon2 + Auth Templates)",
+            value: "kvdex-prod",
+          },
         ],
         default: "none",
       });
-      preset = selectedPreset as "none" | "basic" | "kv-basic" | "kv-prod";
+      preset = selectedPreset as
+        | "none"
+        | "basic"
+        | "kv-basic"
+        | "kv-prod"
+        | "kvdex-basic"
+        | "kvdex-prod";
     } else {
       // Default based on store preference if provided or default
-      const store = options.store || "kv";
-      if (store === "kv") {
+      const store = options.store || "kvdex";
+      if (store === "kvdex") {
+        preset = "kvdex-prod";
+      } else if (store === "kv") {
         preset = "kv-prod";
       } else {
         preset = "basic";
@@ -103,16 +150,19 @@ export async function initAction(
   }
 
   // Determine store type based on preset
-  const isKv = preset!.startsWith("kv");
-  const isProd = preset === "kv-prod";
+  const isKv = preset!.startsWith("kv"); // Matches kv-*, kvdex-*
+  const isKvdex = preset!.startsWith("kvdex");
+  const isProd = preset!.endsWith("prod");
 
   // Define templates based on store
-  // Define templates based on store
-  const configTemplate = isKv ? "config/kv.ts" : "config/memory.ts";
+  let configTemplate = "config/memory.ts";
+  if (isKvdex) configTemplate = "config/kvdex.ts";
+  else if (isKv) configTemplate = "config/kv.ts";
+
   const configContent = sanitizeImports(await readTemplate(configTemplate));
 
   // 1. Deno JSON Dependency Injection
-  await updateDenoJson(options.yes, isProd);
+  await updateDenoJson(options.yes, isProd, isKvdex);
 
   // 1.5. Check for 'unstable' 'kv' config if using KV store
   if (isKv) {
@@ -218,7 +268,11 @@ async function ensureUnstableKv(yes?: boolean) {
   }
 }
 
-async function updateDenoJson(_yes?: boolean, includeArgon2 = false) {
+async function updateDenoJson(
+  _yes?: boolean,
+  includeArgon2 = false,
+  includeKvdex = false,
+) {
   const denoJsonPath = join(CWD, "deno.json");
   try {
     const content = await Deno.readTextFile(denoJsonPath);
@@ -242,7 +296,7 @@ async function updateDenoJson(_yes?: boolean, includeArgon2 = false) {
     if (!config.imports["@innovatedev/fresh-session"]) {
       console.log("Adding dependency to deno.json...");
       config.imports["@innovatedev/fresh-session"] =
-        "jsr:@innovatedev/fresh-session";
+        `jsr:@innovatedev/fresh-session@${getFreshSessionVersion()}`;
       changed = true;
       console.log("Updated deno.json imports.");
     } else {
@@ -251,7 +305,14 @@ async function updateDenoJson(_yes?: boolean, includeArgon2 = false) {
 
     if (includeArgon2 && !config.imports["@felix/argon2"]) {
       console.log("Adding @felix/argon2 for password hashing...");
-      config.imports["@felix/argon2"] = "jsr:@felix/argon2";
+      const v = getDependencyVersion("@felix/argon2", "^3.0.2");
+      config.imports["@felix/argon2"] = `jsr:@felix/argon2@${v}`;
+      changed = true;
+    }
+
+    if (includeKvdex && !config.imports["@olli/kvdex"]) {
+      const v = getDependencyVersion("@olli/kvdex", "^3.4.2");
+      config.imports["@olli/kvdex"] = `jsr:@olli/kvdex@${v}`;
       changed = true;
     }
 

@@ -16,7 +16,8 @@
     "@felix/argon2": "jsr:@felix/argon2@^3.0.2",
     "@innovatedev/fresh-session": "./session/src/mod.ts",
     "@innovatedev/fresh-session/kv-store": "./session/src/stores/kv.ts",
-    "@innovatedev/fresh-session/memory-store": "./session/src/stores/memory.ts"
+    "@innovatedev/fresh-session/memory-store": "./session/src/stores/memory.ts",
+    "@olli/kvdex": "jsr:@olli/kvdex@^3.4.2"
   },
   "compilerOptions": {
     "lib": [

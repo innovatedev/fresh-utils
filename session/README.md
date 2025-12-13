@@ -11,8 +11,8 @@ humans.
 
 ## Features
 
-- **Store Agnostic**: Comes with `MemorySessionStorage` and
-  `DenoKvSessionStorage`.
+- **Store Agnostic**: Comes with `MemorySessionStorage`, `DenoKvSessionStorage`,
+  and `KvDexSessionStorage`.
 - **Secure Defaults**: HTTP-only, secure cookies, session ID rotation.
 - **Session Security**: Optional User-Agent validation and IP tracking.
 - **Type-Safe**: Fully typed session data.
@@ -32,12 +32,12 @@ The easiest way to get started is using the initialization tool:
 deno run -A jsr:@innovatedev/fresh-session/init
 ```
 
-> **Note**: Running with `-y` defaults to the **KV Production** preset (Secure
-> KV Store + Argon2).
+> **Note**: Running with `-y` defaults to the **Kvdex Production** preset
+> (Structured KV + Argon2).
 
 This will:
 
-1. Ask you to choose a store (Memory or KV).
+1. Ask you to choose a store (Memory, KV, or Kvdex).
 2. Add the dependency to your `deno.json`.
 3. Create `config/session.ts` and auth route templates.
 4. Patch your `main.ts`.
@@ -77,6 +77,50 @@ export const sessionConfig: SessionOptions = {
 
 // Generics provide type safety for your AppState
 export const session = createSessionMiddleware<State>(sessionConfig);
+```
+
+### 2. Using Kvdex (Recommended)
+
+`kvdex` offers a structured, typed schema on top of Deno KV.
+
+Run:
+
+```bash
+deno add jsr:@olli/kvdex
+```
+
+```typescript
+import { collection, kvdex, type KvValue, model } from "@olli/kvdex";
+import {
+  KvDexSessionStorage,
+  type SessionDoc,
+} from "@innovatedev/fresh-session/kvdex-store";
+import { createSessionMiddleware } from "@innovatedev/fresh-session";
+
+const kv = await Deno.openKv();
+
+// Define session data model
+export type SessionData = KvValue;
+const SessionModel = model<SessionDoc<SessionData>>();
+// User model with secondary index
+const UserModel = model<{ username: string; email: string }>();
+
+const db = kvdex({
+  kv,
+  schema: {
+    sessions: collection(SessionModel),
+    users: collection(UserModel, { indices: { email: "secondary" } }),
+  },
+});
+
+export const session = createSessionMiddleware({
+  store: new KvDexSessionStorage({
+    collection: db.sessions,
+    userCollection: db.users,
+    // Optional: Use a secondary index for user resolution
+    // userIndex: "email",
+  }),
+});
 ```
 
 ### 2. Register in `main.ts`
