@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.4
+
+- Added `ctx.state.userId` for easy access to the user ID.
+
 ## 0.3.3
 
 ### Features
