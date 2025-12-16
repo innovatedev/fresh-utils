@@ -26,6 +26,8 @@ export type State<UserType = unknown> = {
   sessionId: string;
   /** The resolved user object (if configured). */
   user?: UserType;
+  /** The unique user identifier (if configured). */
+  userId?: string;
 
   /**
    * Log in a user.
@@ -321,6 +323,10 @@ export function createSessionMiddleware<
       if (resolved) {
         ctx.state.user = resolved as unknown as AppState["user"];
       }
+    }
+
+    if(ctx.state.user) {
+      ctx.state.userId = storedSession.userId;
     }
 
     const response = await ctx.next();
