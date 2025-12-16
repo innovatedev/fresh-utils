@@ -1,11 +1,30 @@
-import type { SessionStorage } from "@innovatedev/fresh-session";
+/**
+ * @module
+ *
+ * This module provides a Persistent Session Storage using `kvdex`.
+ *
+ * `kvdex` allows for strongly typed schemas and secondary indexing, which this
+ * storage implementation leverages for structured data and efficient user lookups.
+ *
+ * @example
+ * ```ts
+ * import { KvDexSessionStorage } from "@innovatedev/fresh-session/kvdex-store";
+ * // ... setup ...
+ * ```
+ */
+
+import type { SessionStorage } from "../session.ts";
 import type { Collection, KvValue, ParseId } from "@olli/kvdex";
 
+// Re-export types that are part of the public API surface
+export type { Collection, KvValue };
+
 /**
- * Session storage implementation using kvdex Collection.
- * This storage uses a kvdex Collection to persist sessions.
+ * Minimal shape required for the session document stored in kvdex.
+ *
+ * Your kvdex schema for the session collection MUST generally conform to this shape,
+ * though you can extend `data` with your specific `SessionData` type.
  */
-// Minimal shape required for the session document
 export type SessionDoc<TData extends KvValue> = {
   id: string;
   createdAt: Date;
@@ -22,9 +41,11 @@ export interface KvDexSessionStorageOptions<
   TUser extends KvValue,
 > {
   // Collection must accept SessionDoc<TSessionData> as input
-  // We use `any` for Output/Options to be flexible
+  /** The kvdex collection for sessions. */
   // deno-lint-ignore no-explicit-any
   collection: Collection<SessionDoc<TSessionData>, any, any>;
+
+  /** The kvdex collection for users. */
   // deno-lint-ignore no-explicit-any
   userCollection: Collection<TUser, any, any>;
   /**
@@ -75,6 +96,11 @@ export class KvDexSessionStorage<
   #expireAfter?: number;
   #userIndex?: string;
 
+  /**
+   * Create a new Kvdex session storage instance.
+   *
+   * @param options Configuration for the storage, including kvdex collections.
+   */
   constructor(
     options: KvDexSessionStorageOptions<TSessionData, TUser>,
   ) {
@@ -84,6 +110,9 @@ export class KvDexSessionStorage<
     this.#userIndex = options.userIndex;
   }
 
+  /**
+   * Retrieves session data from the kvdex collection.
+   */
   async get(sessionId: string): Promise<TSessionData | undefined> {
     // We cast sessionId to ParseId because SessionStorage enforces string IDs
     const doc = await this.#collection.find(
@@ -95,6 +124,12 @@ export class KvDexSessionStorage<
     return (doc?.value as any)?.data ?? undefined;
   }
 
+  /**
+   * Stores session data in the kvdex collection.
+   *
+   * @param sessionId The unique session identifier.
+   * @param payload The session data to store.
+   */
   async set(sessionId: string, payload: TSessionData): Promise<void> {
     // Check if session exists to preserve createdAt
     const existing = await this.#collection.find(
@@ -144,6 +179,9 @@ export class KvDexSessionStorage<
     }
   }
 
+  /**
+   * Resolves a user from the user collection, optionally using a secondary index.
+   */
   async resolveUser(userId: string): Promise<TUser | undefined> {
     let doc;
     if (this.#userIndex) {
@@ -177,6 +215,9 @@ export class KvDexSessionStorage<
     };
   }
 
+  /**
+   * Deletes session data from the kvdex collection.
+   */
   async delete(sessionId: string): Promise<void> {
     await this.#collection.delete(
       // deno-lint-ignore no-explicit-any

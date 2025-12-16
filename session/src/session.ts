@@ -1,5 +1,15 @@
+/**
+ * @module
+ *
+ * Core session logic and types.
+ *
+ * Contains the `createSessionMiddleware` factory and typescript interfaces
+ * for Session, State, and Storage.
+ */
 import type { Context } from "fresh";
 import { type Cookie, getCookies, setCookie } from "@std/http/cookie";
+
+export type { Context };
 
 /**
  * Arbitrary session data storage.

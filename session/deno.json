@@ -1,8 +1,8 @@
 {
   "name": "@innovatedev/fresh-session",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "tasks": {
-    "check": "deno fmt --check && deno check ./src && deno lint ./src && deno test -A ./tests"
+    "check": "deno fmt --check && deno check ./src && deno lint ./src && deno run -A ../tools/check-docs.ts && deno test -A ./tests"
   },
   "exports": {
     ".": "./src/mod.ts",

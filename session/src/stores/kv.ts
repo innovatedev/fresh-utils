@@ -29,6 +29,8 @@ export class DenoKvSessionStorage implements SessionStorage {
   private userKeyPrefix: Deno.KvKey;
 
   /**
+   * Create a new session storage using the provided options.
+   *
    * @param options Configuration options.
    */
   constructor(
@@ -42,6 +44,8 @@ export class DenoKvSessionStorage implements SessionStorage {
     },
   );
   /**
+   * Create a new session storage with an optional existing KV instance.
+   *
    * @param kv Optional Deno KV instance or promise. If not provided, `Deno.openKv()` is used.
    * @param options Configuration options.
    */
@@ -57,7 +61,11 @@ export class DenoKvSessionStorage implements SessionStorage {
     },
   );
   /**
+   * Legacy constructor.
    * @deprecated Use the options object signature instead.
+   * @param kv Deno KV instance.
+   * @param prefix Key prefix.
+   * @param expireAfter Expiration in seconds.
    */
   constructor(
     kv: Deno.Kv,
