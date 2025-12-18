@@ -33,4 +33,10 @@ export const session = createSessionMiddleware({
     collection: db.sessions,
     userCollection: db.users,
   }),
+  // Enable for Stateless API Token Support (e.g. "Authorization: Bearer <token>")
+  // verifyToken: async (token) => {
+  //   // const user = await findUserByToken(token);
+  //   // return user;
+  // },
+  // tokenPrefix: "Bearer ", // Optional (Default: "Bearer ")
 });

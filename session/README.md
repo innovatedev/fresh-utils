@@ -152,6 +152,34 @@ export const handler = define.handlers({
 });
 ```
 
+### 4. Stateless API Tokens
+
+You can use the same middleware to protect API routes with Bearer tokens
+(Stateless).
+
+- **Stateless**: No session is stored/persisted.
+- **Unified Context**: `ctx.state.user` is populated.
+- **No-op Flash**: Flash messages are disabled for API requests.
+
+```typescript
+// config/session.ts
+export const session = createSessionMiddleware({
+  store,
+  // 1. Define how to verify the token (e.g. JWT)
+  verifyToken: async (token) => {
+    // Return user if valid, undefined if invalid (or throw)
+    const user = await userFromToken(token);
+    return user;
+  },
+  // 2. Optional: Customize header (Default: Authorization)
+  // tokenHeader: "X-API-Key",
+
+  // 3. Optional: Customize prefix (Default: "Bearer ")
+  // Set to null to receive the raw header value
+  // tokenPrefix: "Token ",
+});
+```
+
 ## Security features
 
 ### User Agent Tracking

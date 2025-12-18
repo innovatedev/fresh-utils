@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.5
+
+- Add stateless API token authentication with `verifyToken` option and
+  `tokenHeader` configuration.
+
 ## 0.3.4
 
 - Added `ctx.state.userId` for easy access to the user ID.

@@ -158,6 +158,28 @@ export interface SessionOptions<UserType = unknown> {
    * If an object with `header` is provided, likely for proxies, uses that header.
    */
   trackIp?: boolean | { header: string };
+  /**
+   * The name of the header to check for an API token (e.g. "Authorization").
+   * Defaults to "Authorization".
+   */
+  tokenHeader?: string;
+  /**
+   * Callback to verify an API token.
+   * If this returns a user, the request is treated as a stateless API request:
+   * - `ctx.state.user` is populated.
+   * - `ctx.state.session` is empty (and changes are discarded).
+   * - No session cookie is set.
+   */
+  verifyToken?: (
+    token: string,
+  ) => Promise<UserType | undefined> | UserType | undefined;
+
+  /**
+   * The prefix to expect in the token header (e.g. "Bearer ").
+   * Defaults to "Bearer ".
+   * Set to `null` or empty string to disable prefix stripping.
+   */
+  tokenPrefix?: string | null;
 }
 
 /** Internal structure for stored sessions. */
@@ -198,6 +220,44 @@ export function createSessionMiddleware<
   const sessionExpiry = options.expiry;
 
   return async (ctx: Context<AppState>) => {
+    // 1. API Token Flow (Stateless)
+    if (options.verifyToken) {
+      const headerName = options.tokenHeader || "Authorization";
+      const headerVal = ctx.req.headers.get(headerName);
+      if (headerVal) {
+        let token = headerVal;
+        const prefix = options.tokenPrefix !== undefined
+          ? options.tokenPrefix
+          : "Bearer ";
+
+        if (prefix && headerVal.startsWith(prefix)) {
+          token = headerVal.slice(prefix.length);
+        }
+
+        const user = await options.verifyToken(token);
+        if (user) {
+          // Valid API Request
+          ctx.state.user = user as unknown as AppState["user"];
+          ctx.state.session = {}; // Stateless
+          ctx.state.sessionId = crypto.randomUUID(); // Ephemeral
+
+          // No-op Flash info
+          ctx.state.flash = (_key: string, _value?: unknown) => {
+            return undefined;
+          };
+          ctx.state.hasFlash = (_key: string) => false;
+
+          // No-op Login/Logout for API
+          ctx.state.login = (_userId: string, _data?: SessionData) =>
+            Promise.resolve();
+          ctx.state.logout = () => Promise.resolve();
+
+          return ctx.next();
+        }
+      }
+    }
+
+    // 2. Standard Session Flow (Cookie-based)
     const cookies = getCookies(ctx.req.headers);
     let sessionId: string | undefined = cookies[cookieName];
 
@@ -335,7 +395,7 @@ export function createSessionMiddleware<
       }
     }
 
-    if(ctx.state.user) {
+    if (ctx.state.user) {
       ctx.state.userId = storedSession.userId;
     }
 
