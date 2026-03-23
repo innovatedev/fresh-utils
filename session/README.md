@@ -37,11 +37,12 @@ deno run -A jsr:@innovatedev/fresh-session/init
 
 This will:
 
-1. Ask you to choose a store (Memory, KV, or Kvdex).
-2. Add the dependency to your `deno.json`.
-3. Create `config/session.ts` and auth route templates.
-4. Patch your `main.ts`.
-5. Create login/logout/register routes.
+1. Ask you to choose a preset (Memory, KV, or Kvdex).
+2. Add dependencies to your `deno.json`.
+3. Create `config/session.ts` (and `kv/db.ts` + `kv/models.ts` for Kvdex).
+4. Update your `utils.ts` State interface to extend session State.
+5. Patch your `main.ts` with the session import and middleware.
+6. Create login/logout/register routes (if a preset with routes is selected).
 
 ## Manual Usage
 
@@ -81,7 +82,8 @@ export const session = createSessionMiddleware<State>(sessionConfig);
 
 ### 2. Using Kvdex (Recommended)
 
-`kvdex` offers a structured, typed schema on top of Deno KV.
+`kvdex` offers a structured, typed schema on top of Deno KV. The CLI init tool
+sets this up automatically, creating a `kv/` folder with separate files:
 
 Run:
 
@@ -90,40 +92,51 @@ deno add jsr:@olli/kvdex
 ```
 
 ```typescript
-import { collection, kvdex, type KvValue, model } from "@olli/kvdex";
-import {
-  KvDexSessionStorage,
-  type SessionDoc,
-} from "@innovatedev/fresh-session/kvdex-store";
-import { createSessionMiddleware } from "@innovatedev/fresh-session";
+// kv/models.ts
+import { type KvValue, model } from "@olli/kvdex";
+import type { SessionDoc } from "@innovatedev/fresh-session/kvdex-store";
+
+export type SessionData = KvValue;
+export type User = { username: string } & KvValue;
+
+export const SessionModel = model<SessionDoc<SessionData>>();
+export const UserModel = model<User>();
+```
+
+```typescript
+// kv/db.ts
+import { collection, kvdex } from "@olli/kvdex";
+import { SessionModel, UserModel } from "./models.ts";
 
 const kv = await Deno.openKv();
-
-// Define session data model
-export type SessionData = KvValue;
-const SessionModel = model<SessionDoc<SessionData>>();
-// User model with secondary index
-const UserModel = model<{ username: string; email: string }>();
 
 const db = kvdex({
   kv,
   schema: {
     sessions: collection(SessionModel),
-    users: collection(UserModel, { indices: { email: "secondary" } }),
+    users: collection(UserModel),
   },
 });
+
+export { db, kv };
+```
+
+```typescript
+// config/session.ts
+import { createSessionMiddleware } from "@innovatedev/fresh-session";
+import { KvDexSessionStorage } from "@innovatedev/fresh-session/kvdex-store";
+import { db } from "../kv/db.ts";
 
 export const session = createSessionMiddleware({
   store: new KvDexSessionStorage({
     collection: db.sessions,
     userCollection: db.users,
-    // Optional: Use a secondary index for user resolution
-    // userIndex: "email",
+    expireAfter: 60 * 60 * 24 * 7, // 1 week
   }),
 });
 ```
 
-### 2. Register in `main.ts`
+### 3. Register in `main.ts`
 
 ```typescript
 import { session } from "./config/session.ts";
@@ -133,13 +146,13 @@ app.use(session);
 // ...
 ```
 
-### 3. Use in Handlers/Pages
+### 4. Use in Handlers/Pages
 
 ```typescript
 export const handler = define.handlers({
   async GET(ctx) {
-    // Session data is fully typed (assuming State is generic)
-    ctx.state.session.set("foo", "bar");
+    // Session data (key-value object)
+    ctx.state.session["foo"] = "bar";
 
     // Flash messages (one-time messages)
     ctx.state.flash("success", "Operation successful!");
@@ -152,7 +165,7 @@ export const handler = define.handlers({
 });
 ```
 
-### 4. Stateless API Tokens
+### 5. Stateless API Tokens
 
 You can use the same middleware to protect API routes with Bearer tokens
 (Stateless).

@@ -40,7 +40,6 @@ function sanitizeImports(content: string): string {
       'from "@innovatedev/fresh-session/kvdex-store";',
     )
     // Handle JSR-rewritten versioned specifiers
-    // e.g. "jsr:@innovatedev/fresh-session@^0.3.7" → "@innovatedev/fresh-session"
     // e.g. "jsr:@innovatedev/fresh-session@^0.3.7/kvdex-store" → "@innovatedev/fresh-session/kvdex-store"
     .replace(
       /from "jsr:@innovatedev\/fresh-session@[^"\/]+(?:\/([^"]+))?";/g,
@@ -48,6 +47,12 @@ function sanitizeImports(content: string): string {
         subpath
           ? `from "@innovatedev/fresh-session/${subpath}";`
           : `from "@innovatedev/fresh-session";`,
+    )
+    // Handle JSR-rewritten dependency specifiers
+    // e.g. "jsr:@olli/kvdex@^3.4.2" → "@olli/kvdex"
+    .replace(
+      /from "jsr:(@[^\/]+\/[^@"]+)@[^"]+";/g,
+      'from "$1";',
     )
     .replace(
       /from "(\.\.\/)+utils\.ts";/g,
@@ -195,6 +200,20 @@ export async function initAction(
   // 2. Config & Routes
   await writeFile("config/session.ts", configContent, options.yes);
 
+  // 2.5. Write kv/ files for kvdex presets
+  if (isKvdex) {
+    await writeFile(
+      "kv/db.ts",
+      sanitizeImports(await readTemplate("kv/db.ts")),
+      options.yes,
+    );
+    await writeFile(
+      "kv/models.ts",
+      sanitizeImports(await readTemplate("kv/models.ts")),
+      options.yes,
+    );
+  }
+
   if (preset !== "none") {
     const suffix = isProd ? "_prod" : "_basic";
     // Shared logout
@@ -236,7 +255,7 @@ export async function initAction(
   }
 
   // 3. Patch utils.ts State interface
-  await patchUtilsState(options.yes);
+  await patchUtilsState(options.yes, isKvdex);
 
   // 4. Patch Main
   await patchMainTs(isKv);
@@ -379,7 +398,7 @@ async function writeFile(path: string, content: string, yes?: boolean) {
 
 const DEFAULT_STATE_MARKER = "shared: string";
 
-async function patchUtilsState(yes?: boolean) {
+async function patchUtilsState(yes?: boolean, isKvdex = false) {
   const utilsPath = join(CWD, "utils.ts");
   try {
     const content = await Deno.readTextFile(utilsPath);
@@ -401,18 +420,26 @@ async function patchUtilsState(yes?: boolean) {
         )
       ) {
         console.log("Skipping utils.ts update.");
-        printStateExample();
+        printStateExample(isKvdex);
         return;
       }
+
+      const sessionImport = isKvdex
+        ? 'import type { State as SessionState } from "@innovatedev/fresh-session";\nimport type { User } from "./kv/models.ts";'
+        : 'import type { State as SessionState } from "@innovatedev/fresh-session";';
+
+      const stateInterface = isKvdex
+        ? `export interface State extends SessionState<User> {\n  shared: string;\n}`
+        : `export interface State extends SessionState {\n  shared: string;\n}`;
 
       const updated = content
         .replace(
           /import\s*\{\s*createDefine\s*\}\s*from\s*"fresh";/,
-          `import { createDefine } from "fresh";\nimport type { State as SessionState } from "@innovatedev/fresh-session";`,
+          `import { createDefine } from "fresh";\n${sessionImport}`,
         )
         .replace(
-          /\/\/.*?\n*export interface State \{[^}]*\}/s,
-          `export interface State extends SessionState {\n  // Add your custom state properties here\n}`,
+          /\/\/.*\n*export interface State \{[^}]*\}/s,
+          stateInterface,
         );
 
       await Deno.writeTextFile(utilsPath, updated);
@@ -422,7 +449,7 @@ async function patchUtilsState(yes?: boolean) {
       console.log(
         "\n⚠️  Your utils.ts has a custom State interface.",
       );
-      printStateExample();
+      printStateExample(isKvdex);
     }
   } catch (e) {
     if (e instanceof Deno.errors.NotFound) {
@@ -433,9 +460,13 @@ async function patchUtilsState(yes?: boolean) {
   }
 }
 
-function printStateExample() {
+function printStateExample(isKvdex = false) {
+  const userImport = isKvdex
+    ? '\n  import type { User } from "./kv/models.ts";'
+    : "";
+  const stateExtends = isKvdex ? "SessionState<User>" : "SessionState";
   console.log(
-    `\nPlease update your State interface in utils.ts to extend the session State:\n\n  import type { State as SessionState } from "@innovatedev/fresh-session";\n\n  export interface State extends SessionState {\n    // your existing properties...\n  }\n`,
+    `\nPlease update your State interface in utils.ts to extend the session State:\n\n  import type { State as SessionState } from "@innovatedev/fresh-session";${userImport}\n\n  export interface State extends ${stateExtends} {\n    // your existing properties...\n  }\n`,
   );
 }
 

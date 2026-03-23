@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.3.9
+
+- **Init**: Kvdex presets now generate a `kv/` folder with `db.ts` and
+  `models.ts` for better project structure.
+- **Init**: `utils.ts` State patching now preserves `shared: string`,
+  adds `User` type for kvdex, and extends `SessionState<User>`.
+- **Init**: Added generic JSR dependency sanitization for `@olli/kvdex` and others.
+- **Init**: Added kvdex-basic and kvdex-prod to CLI preset help text.
+
+## 0.3.8
+
+- **Init**: Improved JSR import sanitization to handle `jsr:@scope/pkg@version` rewrites.
+- **Init**: Automatically integrates session State into `utils.ts`.
+- **Init**: Adds `/// <reference lib="deno.unstable" />` to `main.ts` for KV presets.
+
+## 0.3.7
+
+- **Exports**: Enforce sub-path imports for session stores (e.g., `fresh-session/kv-store`).
+- **Init**: Fix command import aliases for kvdex and memory stores.
+- **Stores**: Enhance `kvdex` store options.
+
 ## 0.3.6
 
 - **Init**: Fixed import modifications for `utils.ts` aliases and `kvdex`

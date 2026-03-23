@@ -29,7 +29,7 @@ if (import.meta.main) {
     })
     .option(
       "-p, --preset <preset:string>",
-      "Preset (none, basic, kv-basic, kv-prod)",
+      "Preset (none, basic, kv-basic, kv-prod, kvdex-basic, kvdex-prod)",
     )
     .option("-y, --yes", "Skip prompts and use defaults/arguments")
     .action(initAction)
