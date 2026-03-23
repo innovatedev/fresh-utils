@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.6
+
+- **Init**: Fixed import modifications for `utils.ts` aliases and `kvdex`
+  stores.
+- **Exports**: Removed store exports from main entrypoint. Import via sub-paths
+  (e.g. `fresh-session/kv-store`) is now required.
+- **Docs**: Improved documentation coverage for `kvdex-store`.
+
 ## 0.3.5
 
 - Add stateless API token authentication with `verifyToken` option and

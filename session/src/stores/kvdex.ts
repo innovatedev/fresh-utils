@@ -18,6 +18,7 @@ import type { Collection, KvValue, ParseId } from "@olli/kvdex";
 
 // Re-export types that are part of the public API surface
 export type { Collection, KvValue };
+export type { SessionStorage } from "../session.ts";
 
 /**
  * Minimal shape required for the session document stored in kvdex.
@@ -27,6 +28,11 @@ export type { Collection, KvValue };
  */
 export type SessionDoc<TData extends KvValue> = {
   id: string;
+  createdAt: Date;
+  updatedAt: Date;
+  expiresAt: Date;
+  data: TData;
+} | {
   createdAt: Date;
   updatedAt: Date;
   expiresAt: Date;

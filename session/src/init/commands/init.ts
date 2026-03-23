@@ -34,6 +34,14 @@ function sanitizeImports(content: string): string {
       /from "(\.\.\/)+stores\/memory\.ts";/g,
       'from "@innovatedev/fresh-session/memory-store";',
     )
+    .replace(
+      /from "(\.\.\/)+stores\/kvdex\.ts";/g,
+      'from "@innovatedev/fresh-session/kvdex-store";',
+    )
+    .replace(
+      /from "(\.\.\/)+utils\.ts";/g,
+      'from "@/utils.ts";',
+    )
     .trimStart();
 }
 
@@ -58,7 +66,11 @@ function getFreshSessionVersion(): string {
 function getDependencyVersion(pkg: string, fallback: string): string {
   const imp = denoConfig.imports?.[pkg as keyof typeof denoConfig.imports];
   if (imp && imp.startsWith("jsr:")) {
-    return imp.split("@").slice(1).join("@") || fallback;
+    // Format: "jsr:@scope/pkg@^1.2.3" or "jsr:@scope/pkg@1.2.3"
+    const lastAt = imp.lastIndexOf("@");
+    if (lastAt > 4) { // ensuring it's not the @ in jsr:@...
+      return imp.substring(lastAt + 1) || fallback;
+    }
   }
   return fallback;
 }
