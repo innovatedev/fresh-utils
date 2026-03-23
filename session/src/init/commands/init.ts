@@ -384,7 +384,10 @@ async function patchUtilsState(yes?: boolean) {
   try {
     const content = await Deno.readTextFile(utilsPath);
 
-    if (content.includes('State as SessionState') || content.includes('from "@innovatedev/fresh-session"')) {
+    if (
+      content.includes("State as SessionState") ||
+      content.includes('from "@innovatedev/fresh-session"')
+    ) {
       console.log("utils.ts already imports session State.");
       return;
     }
