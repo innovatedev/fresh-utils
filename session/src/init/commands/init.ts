@@ -22,6 +22,7 @@ async function readTemplate(path: string): Promise<string> {
 function sanitizeImports(content: string): string {
   return content
     .replace(/\/\*\* @jsx.*?\*\//g, "")
+    // Handle JSR-rewritten relative path imports
     .replace(
       /from "(\.\.\/)+mod\.ts";/g,
       'from "@innovatedev/fresh-session";',
@@ -37,6 +38,16 @@ function sanitizeImports(content: string): string {
     .replace(
       /from "(\.\.\/)+stores\/kvdex\.ts";/g,
       'from "@innovatedev/fresh-session/kvdex-store";',
+    )
+    // Handle JSR-rewritten versioned specifiers
+    // e.g. "jsr:@innovatedev/fresh-session@^0.3.7" → "@innovatedev/fresh-session"
+    // e.g. "jsr:@innovatedev/fresh-session@^0.3.7/kvdex-store" → "@innovatedev/fresh-session/kvdex-store"
+    .replace(
+      /from "jsr:@innovatedev\/fresh-session@[^"\/]+(?:\/([^"]+))?";/g,
+      (_, subpath) =>
+        subpath
+          ? `from "@innovatedev/fresh-session/${subpath}";`
+          : `from "@innovatedev/fresh-session";`,
     )
     .replace(
       /from "(\.\.\/)+utils\.ts";/g,
@@ -224,8 +235,11 @@ export async function initAction(
     );
   }
 
-  // 3. Patch Main
-  await patchMainTs();
+  // 3. Patch utils.ts State interface
+  await patchUtilsState(options.yes);
+
+  // 4. Patch Main
+  await patchMainTs(isKv);
 
   console.log("\nSetup complete!");
 }
@@ -363,14 +377,81 @@ async function writeFile(path: string, content: string, yes?: boolean) {
   console.log(`Created ${path}`);
 }
 
-async function patchMainTs() {
+const DEFAULT_STATE_MARKER = "shared: string";
+
+async function patchUtilsState(yes?: boolean) {
+  const utilsPath = join(CWD, "utils.ts");
+  try {
+    const content = await Deno.readTextFile(utilsPath);
+
+    if (content.includes('State as SessionState') || content.includes('from "@innovatedev/fresh-session"')) {
+      console.log("utils.ts already imports session State.");
+      return;
+    }
+
+    if (content.includes(DEFAULT_STATE_MARKER)) {
+      // Default Fresh State — safe to update automatically
+      if (
+        !await confirm(
+          "Update utils.ts State to extend session State?",
+          yes,
+        )
+      ) {
+        console.log("Skipping utils.ts update.");
+        printStateExample();
+        return;
+      }
+
+      const updated = content
+        .replace(
+          /import\s*\{\s*createDefine\s*\}\s*from\s*"fresh";/,
+          `import { createDefine } from "fresh";\nimport type { State as SessionState } from "@innovatedev/fresh-session";`,
+        )
+        .replace(
+          /\/\/.*?\n*export interface State \{[^}]*\}/s,
+          `export interface State extends SessionState {\n  // Add your custom state properties here\n}`,
+        );
+
+      await Deno.writeTextFile(utilsPath, updated);
+      console.log("Updated utils.ts with session State.");
+    } else {
+      // Customized State — print guidance
+      console.log(
+        "\n⚠️  Your utils.ts has a custom State interface.",
+      );
+      printStateExample();
+    }
+  } catch (e) {
+    if (e instanceof Deno.errors.NotFound) {
+      console.warn("utils.ts not found.");
+    } else {
+      console.error("Error patching utils.ts:", e);
+    }
+  }
+}
+
+function printStateExample() {
+  console.log(
+    `\nPlease update your State interface in utils.ts to extend the session State:\n\n  import type { State as SessionState } from "@innovatedev/fresh-session";\n\n  export interface State extends SessionState {\n    // your existing properties...\n  }\n`,
+  );
+}
+
+async function patchMainTs(isKv = false) {
   const mainTsPath = join(CWD, "main.ts");
   try {
     let content = await Deno.readTextFile(mainTsPath);
     let patched = false;
 
+    // 0. Add triple-slash reference for KV stores
+    const kvRef = '/// <reference lib="deno.unstable" />';
+    if (isKv && !content.includes(kvRef)) {
+      content = kvRef + "\n" + content;
+      console.log("Added deno.unstable reference to main.ts");
+      patched = true;
+    }
+
     const importStmt = 'import { session } from "./config/session.ts";';
-    const middlewareUsage = "app.use(session);";
+    const middlewareUsage = "app.use(session)";
 
     // 1. Check/Add Import
     if (!content.includes(importStmt)) {
