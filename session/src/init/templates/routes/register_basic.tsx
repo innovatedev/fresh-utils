@@ -1,3 +1,4 @@
+import { Button } from "../components/Button.tsx";
 import { define } from "../utils.ts";
 
 export const handler = define.handlers({
@@ -13,7 +14,7 @@ export const handler = define.handlers({
     // Logic to save user goes here
 
     // Log them in
-    await ctx.state.login(username, { username });
+    await ctx.state.login(username);
 
     return ctx.redirect("/");
   },
@@ -45,9 +46,12 @@ export default define.page<typeof handler>((ctx) => {
             required
           />
         </div>
-        <button type="submit" class="bg-green-500 text-white p-2 rounded">
+        <Button
+          type="submit"
+          class="bg-green-500 text-white p-2 rounded w-full"
+        >
           Register
-        </button>
+        </Button>
       </form>
 
       <p class="mt-4 text-center">

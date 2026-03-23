@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0
+
+- **Init**: Automatically generates a global `Header` island and injects it into
+  `routes/_app.tsx`.
+- **Init**: Detects the `daisyui` plugin in `deno.json` and supplies a native
+  DaisyUI Header variant utilizing pure CSS `<details>` dropdowns.
+- **Init**: Universalizes authentication templates (Login & Register) to import
+  and use the host project's default generic `<Button>` component instead of
+  hardcoded framework classes.
+- **Init**: Updates the generated `/logout` route template to securely use a
+  `POST` handler instead of `GET`.
+- **Init**: Fix login and register templates to not pass redundant `{ username }` in session data.
+
 ## 0.3.9
 
 - **Init**: Kvdex presets now generate a `kv/` folder with `db.ts` and

@@ -1,7 +1,7 @@
 import { define } from "../utils.ts";
 
 export const handler = define.handlers({
-  GET(ctx) {
+  POST(ctx) {
     // Destroy session
     ctx.state.logout();
 

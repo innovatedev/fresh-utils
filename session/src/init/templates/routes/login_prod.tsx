@@ -1,3 +1,4 @@
+import { Button } from "../components/Button.tsx";
 import { define } from "../utils.ts";
 /* import { verify } from "@felix/argon2"; */
 
@@ -30,7 +31,7 @@ export const handler = define.handlers({
 
       // 3. Log user in (Rotation is handled automatically)
       // Note: In a real app, do this ONLY after verification passes!
-      await ctx.state.login(username, { username });
+      await ctx.state.login(username);
 
       return ctx.redirect("/");
     }
@@ -76,9 +77,9 @@ export default define.page<typeof handler>((ctx) => {
             required
           />
         </div>
-        <button type="submit" class="bg-blue-500 text-white p-2 rounded">
+        <Button type="submit" class="bg-blue-500 text-white p-2 rounded w-full">
           Login
-        </button>
+        </Button>
       </form>
 
       <p class="mt-4 text-center">

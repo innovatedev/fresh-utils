@@ -252,6 +252,16 @@ export async function initAction(
       registerContent,
       options.yes,
     );
+
+    const useDaisy = await hasDaisyUI();
+    const headerVariant = useDaisy ? "Header_daisyui.tsx" : "Header.tsx";
+
+    // Header island
+    await writeFile(
+      "islands/template/Header.tsx",
+      sanitizeImports(await readTemplate(`islands/template/${headerVariant}`)),
+      options.yes,
+    );
   }
 
   // 3. Patch utils.ts State interface
@@ -259,6 +269,11 @@ export async function initAction(
 
   // 4. Patch Main
   await patchMainTs(isKv);
+
+  // 5. Patch _app.tsx
+  if (preset !== "none") {
+    await patchAppTsx();
+  }
 
   console.log("\nSetup complete!");
 }
@@ -398,6 +413,20 @@ async function writeFile(path: string, content: string, yes?: boolean) {
 
 const DEFAULT_STATE_MARKER = "shared: string";
 
+async function hasDaisyUI(): Promise<boolean> {
+  const checkFile = async (filename: string) => {
+    try {
+      const content = await Deno.readTextFile(join(CWD, filename));
+      return content.includes("daisyui");
+    } catch {
+      return false;
+    }
+  };
+
+  return (await checkFile("deno.json")) ||
+    (await checkFile("deno.jsonc"));
+}
+
 async function patchUtilsState(yes?: boolean, isKvdex = false) {
   const utilsPath = join(CWD, "utils.ts");
   try {
@@ -468,6 +497,49 @@ function printStateExample(isKvdex = false) {
   console.log(
     `\nPlease update your State interface in utils.ts to extend the session State:\n\n  import type { State as SessionState } from "@innovatedev/fresh-session";${userImport}\n\n  export interface State extends ${stateExtends} {\n    // your existing properties...\n  }\n`,
   );
+}
+
+async function patchAppTsx() {
+  const appPath = join(CWD, "routes/_app.tsx");
+  try {
+    let content = await Deno.readTextFile(appPath);
+    if (
+      content.includes("<body>\n        <Component />\n      </body>")
+    ) {
+      if (!content.includes("import Header")) {
+        content = content.replace(
+          /^(import .*?;)/m,
+          `$1\nimport Header from "../islands/template/Header.tsx";`,
+        );
+      }
+
+      content = content.replace(
+        /export default function App\(\{\s*([\w\s,]+?)\s*\}:\s*PageProps\)/,
+        (_match, inner) => {
+          const params = inner.split(",").map((s: string) => s.trim()).filter(
+            Boolean,
+          );
+          if (!params.includes("state")) params.push("state");
+          if (!params.includes("url")) params.push("url");
+          return `export default function App({ ${
+            params.join(", ")
+          } }: PageProps)`;
+        },
+      );
+
+      content = content.replace(
+        /<body>\n\s*<Component \/>\n\s*<\/body>/,
+        `<body>\n        <Header activeUrl={url?.pathname} username={state?.user?.username ?? state?.userId} />\n        <Component />\n      </body>`,
+      );
+
+      await Deno.writeTextFile(appPath, content);
+      console.log("Updated routes/_app.tsx with Header.");
+    }
+  } catch (e) {
+    if (!(e instanceof Deno.errors.NotFound)) {
+      console.error("Error patching routes/_app.tsx:", e);
+    }
+  }
 }
 
 async function patchMainTs(isKv = false) {
