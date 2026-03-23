@@ -2,9 +2,7 @@ import {
   createSessionMiddleware,
   type SessionOptions,
 } from "@innovatedev/fresh-session";
-import {
-  KvDexSessionStorage,
-} from "@innovatedev/fresh-session/kvdex-store";
+import { KvDexSessionStorage } from "@innovatedev/fresh-session/kvdex-store";
 import { db } from "../kv/db.ts";
 import type { State } from "../utils.ts";
 
