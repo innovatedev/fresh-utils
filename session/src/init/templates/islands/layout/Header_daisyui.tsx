@@ -41,7 +41,12 @@ export default function Header({
                   </button>
                 </li>
               </ul>
-              <form id="logout-form" method="POST" action="/logout" class="hidden" />
+              <form
+                id="logout-form"
+                method="POST"
+                action="/logout"
+                class="hidden"
+              />
             </details>
           )
           : (

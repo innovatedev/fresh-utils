@@ -314,9 +314,21 @@ export async function initAction(
 
   // 2.5. Write kv/ files for kvdex presets
   if (isKvdex) {
+    const userIndices = [
+      enableUsername ? '        username: "primary",' : "",
+      enableEmail ? '        email: "primary",' : "",
+    ].filter(Boolean).join("\n");
+
+    let dbContent = await readTemplate("kv/db.ts");
+    dbContent = replaceWithIndent(
+      dbContent,
+      "// {{USER_INDICES}}",
+      userIndices,
+    );
+
     await writeFile(
       "kv/db.ts",
-      sanitizeImports(await readTemplate("kv/db.ts")),
+      sanitizeImports(dbContent),
       options.yes,
     );
     await writeFile(

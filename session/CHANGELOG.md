@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.17
+
+- **Dynamic Database Configuration**: Kvdex primary indices are now
+  automatically configured based on your chosen authentication fields (username
+  and/or email).
+
 ## 0.4.16
 
 - **DaisyUI Support**: Added dedicated template variations for projects using

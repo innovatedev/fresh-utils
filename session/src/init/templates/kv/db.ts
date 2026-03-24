@@ -10,7 +10,7 @@ const db = kvdex({
     sessions: collection(SessionModel),
     users: collection(UserModel, {
       indices: {
-        username: "primary",
+        // {{USER_INDICES}}
       },
     }),
   },
