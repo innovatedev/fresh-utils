@@ -2,6 +2,10 @@
 
 ## 0.4.1
 
+- **Init**: Fixed `deno.json` import alias for `fresh-session` to use `npm:` specifier.
+
+## 0.4.1
+
 - **Refactored `init` Command**: Split monolithic `init.ts` into modular
   `helpers.ts` and `patchers.ts` for better maintainability.
 - **Configurable Auth Route Prefix**: Added support for custom auth routes

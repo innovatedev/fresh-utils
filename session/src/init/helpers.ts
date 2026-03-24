@@ -62,7 +62,7 @@ export function sanitizeImports(content: string): string {
     // Handle JSR-rewritten dependency specifiers
     // e.g. "jsr:@olli/kvdex@^3.4.2" → "@olli/kvdex"
     .replace(
-      /from "jsr:(@[^\/]+\/[^@"]+)@[^"]+";/g,
+      /from "(jsr|npm):(@?[^\/]+\/[^@"]+)@[^"]+";/g,
       'from "$1";',
     )
     .replace(

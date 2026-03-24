@@ -1,5 +1,4 @@
-// deno-lint-ignore no-import-prefix
-import { useSignal } from "npm:@preact/signals@^2.8.2";
+import { useSignal } from "@preact/signals";
 
 export default function Header({
   activeUrl,
