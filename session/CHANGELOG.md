@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.3
+
+- **Init**: Fix daisyui detection
+
 ## 0.4.2
 
 - **Init**: Removed npm/jsr prefix in generated files

@@ -1,10 +1,12 @@
 import { Confirm, join, jsonc } from "./deps.ts";
 import denoConfig from "../../deno.json" with { type: "json" };
 
-export const CWD = Deno.cwd();
+export function getCWD() {
+  return Deno.cwd();
+}
 
 export async function checkFreshVersion() {
-  const djPath = join(CWD, "deno.json");
+  const djPath = join(getCWD(), "deno.json");
   let isFreshProject = false;
   try {
     const dj = JSON.parse(await Deno.readTextFile(djPath));
@@ -14,7 +16,7 @@ export async function checkFreshVersion() {
   } catch {
     // Check deno.jsonc
     try {
-      const djc = await Deno.readTextFile(join(CWD, "deno.jsonc"));
+      const djc = await Deno.readTextFile(join(getCWD(), "deno.jsonc"));
       if (djc.includes('"fresh"') || djc.includes('"$fresh/"')) {
         isFreshProject = true;
       }
@@ -97,7 +99,7 @@ export async function confirm(msg: string, yes?: boolean): Promise<boolean> {
 }
 
 export async function writeFile(path: string, content: string, yes?: boolean) {
-  const fullPath = join(CWD, path);
+  const fullPath = join(getCWD(), path);
   try {
     await Deno.stat(fullPath);
     if (!await confirm(`File ${path} already exists. Overwrite?`, yes)) {
@@ -114,22 +116,20 @@ export async function writeFile(path: string, content: string, yes?: boolean) {
   console.log(`Created ${path}`);
 }
 
-export async function hasDaisyUI(): Promise<boolean> {
+export async function hasDaisyUI(
+  options: { cwd?: string; readFile?: (path: string) => Promise<string> } = {},
+): Promise<boolean> {
+  const { cwd = getCWD(), readFile = Deno.readTextFile } = options;
   const checkFile = async (filename: string) => {
     try {
-      const content = await Deno.readTextFile(join(CWD, filename));
-      return content.includes("daisyui");
+      const content = await readFile(join(cwd, filename));
+      return content.toLowerCase().includes("daisyui");
     } catch {
       return false;
     }
   };
 
-  return (await checkFile("deno.json")) ||
-    (await checkFile("deno.jsonc")) ||
-    (await checkFile("import_map.json")) ||
-    (await checkFile("package.json")) ||
-    (await checkFile("tailwind.config.ts")) ||
-    (await checkFile("tailwind.config.js"));
+  return (await checkFile("deno.json")) || (await checkFile("deno.jsonc"));
 }
 
 type DenoJsonConfig = {
@@ -138,7 +138,7 @@ type DenoJsonConfig = {
 };
 
 export async function ensureUnstableKv(yes?: boolean) {
-  const denoJsonPath = join(CWD, "deno.json");
+  const denoJsonPath = join(getCWD(), "deno.json");
   try {
     const content = await Deno.readTextFile(denoJsonPath);
     let config: DenoJsonConfig;
@@ -187,7 +187,7 @@ export async function updateDenoJson(
   includeArgon2 = false,
   includeKvdex = false,
 ) {
-  const denoJsonPath = join(CWD, "deno.json");
+  const denoJsonPath = join(getCWD(), "deno.json");
   try {
     const content = await Deno.readTextFile(denoJsonPath);
     let config: DenoJsonConfig;

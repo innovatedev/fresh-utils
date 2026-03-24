@@ -1,5 +1,5 @@
 import { expect } from "./deps.ts";
-import { sanitizeImports } from "../src/init/helpers.ts";
+import { hasDaisyUI, sanitizeImports } from "../src/init/helpers.ts";
 
 Deno.test("sanitizeImports", async (t) => {
   await t.step("should remove @jsx annotations", () => {
@@ -100,5 +100,42 @@ import { someUtil } from "@/utils.ts";
     `.trimStart();
 
     expect(sanitizeImports(input2)).toBe(expected2);
+  });
+});
+
+Deno.test("hasDaisyUI", async (t) => {
+  const createMockReadFile = (files: Record<string, string>) => {
+    return (path: string) => {
+      for (const [name, content] of Object.entries(files)) {
+        if (path.endsWith(name)) return Promise.resolve(content);
+      }
+      return Promise.reject(new Deno.errors.NotFound());
+    };
+  };
+
+  await t.step("should return true if deno.json contains daisyui", async () => {
+    const readFile = createMockReadFile({
+      "deno.json": JSON.stringify({ imports: { "daisyui": "npm:daisyui" } }),
+    });
+    expect(await hasDaisyUI({ readFile })).toBe(true);
+  });
+
+  await t.step("should return false if no file contains daisyui", async () => {
+    const readFile = createMockReadFile({});
+    expect(await hasDaisyUI({ readFile })).toBe(false);
+  });
+
+  await t.step("should return true if deno.jsonc contains daisyui", async () => {
+    const readFile = createMockReadFile({
+      "deno.jsonc": '{ "imports": { "daisyui": "npm:daisyui" } }',
+    });
+    expect(await hasDaisyUI({ readFile })).toBe(true);
+  });
+
+  await t.step("should return true if case is different", async () => {
+    const readFile = createMockReadFile({
+      "deno.json": JSON.stringify({ imports: { "daisyUI": "npm:daisyui" } }),
+    });
+    expect(await hasDaisyUI({ readFile })).toBe(true);
   });
 });
