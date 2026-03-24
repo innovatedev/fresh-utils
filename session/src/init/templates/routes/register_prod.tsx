@@ -9,14 +9,13 @@ export const handler = define.handlers({
     const password = form.get("password")?.toString();
 
     if (!/* {{REGISTER_VALIDATION}} */ true || !password) {
-      // {{AUTH_LOGIC}}
-
-      return ctx.redirect("/");
+      ctx.state.flash("error", "Missing required fields");
+      return ctx.redirect("/register");
     }
 
-    ctx.state.flash("error", "Failed to create account");
+    // {{AUTH_LOGIC}}
 
-    return ctx.redirect("/register");
+    return ctx.redirect("/");
   },
 });
 
@@ -32,10 +31,10 @@ export default define.page<typeof handler>((ctx) => {
       </div>
 
       <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 card bg-base-100 shadow-xl border border-gray-100">
+        <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-gray-100">
           {error && (
             <div
-              class="bg-red-50 border-l-4 border-red-400 p-4 mb-6 alert alert-error shadow-sm"
+              class="bg-red-50 border-l-4 border-red-400 p-4 mb-6"
               role="alert"
             >
               <div class="flex">
@@ -64,15 +63,15 @@ export default define.page<typeof handler>((ctx) => {
             {/* {{REGISTER_FIELDS}} */}
 
             <div class="space-y-1">
-              <label class="block text-sm font-medium text-gray-700 label">
-                <span class="label-text font-semibold">Password</span>
+              <label class="block text-sm font-medium text-gray-700">
+                Password
               </label>
               <div class="mt-1">
                 <input
                   type="password"
                   name="password"
                   placeholder="••••••••"
-                  class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm input input-bordered focus:input-primary transition-all"
+                  class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   required
                 />
               </div>
@@ -81,7 +80,7 @@ export default define.page<typeof handler>((ctx) => {
             <div>
               <Button
                 type="submit"
-                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 btn btn-primary transition-all"
+                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 Sign up
               </Button>
@@ -94,7 +93,7 @@ export default define.page<typeof handler>((ctx) => {
                 <div class="w-full border-t border-gray-300"></div>
               </div>
               <div class="relative flex justify-center text-sm">
-                <span class="px-2 bg-white text-gray-500 bg-base-100">
+                <span class="px-2 bg-white text-gray-500">
                   Already have an account?
                 </span>
               </div>
@@ -103,7 +102,7 @@ export default define.page<typeof handler>((ctx) => {
             <div class="mt-6">
               <a
                 href="/login"
-                class="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 btn btn-outline transition-all"
+                class="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
               >
                 Sign in
               </a>

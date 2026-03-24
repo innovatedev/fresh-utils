@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.16
+
+- **DaisyUI Support**: Added dedicated template variations for projects using
+  DaisyUI, featuring native components and full theme/dark-mode support.
+- **Perfect Code Generation**: Dynamic code injection now respects your
+  project's indentation, and generated files are automatically cleaned of
+  internal lint suppressions.
+- **Improved Authentication Flow**: Auth routes now handle validation errors
+  gracefully, providing specific feedback (e.g., "User already exists") instead
+  of generic failures.
+- **UI Refinements**: Standardized form fields and labels across all templates
+  for a consistent, premium look.
+- **Bug Fixes**: Resolved syntax errors in generated logout handlers and
+  improved button clickability in DaisyUI headers.
+
 ## 0.4.15
 
 - **Init**: Implemented indentation-aware code injection for perfectly formatted

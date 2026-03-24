@@ -32,13 +32,16 @@ export default function Header({
               </summary>
               <ul class="dropdown-content menu bg-base-100 rounded-box z-50 w-52 p-2 shadow-sm">
                 <li>
-                  <form method="POST" action="/logout">
-                    <button type="submit" class="text-error w-full text-left">
-                      Logout
-                    </button>
-                  </form>
+                  <button
+                    type="submit"
+                    form="logout-form"
+                    class="text-error justify-start"
+                  >
+                    Logout
+                  </button>
                 </li>
               </ul>
+              <form id="logout-form" method="POST" action="/logout" class="hidden" />
             </details>
           )
           : (

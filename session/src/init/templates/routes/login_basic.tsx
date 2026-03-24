@@ -7,15 +7,14 @@ export const handler = define.handlers({
     const form = await ctx.req.formData();
     const login = form.get("login")?.toString();
 
-    if (login) {
-      // {{AUTH_LOGIC}}
-      return ctx.redirect("/");
+    if (!login) {
+      ctx.state.flash("error", "Invalid {{LOGIN_FIELD}}");
+      return ctx.redirect("/login");
     }
 
-    // Set validation error using flash
-    ctx.state.flash("error", "Invalid {{LOGIN_FIELD}}");
+    // {{AUTH_LOGIC}}
 
-    return ctx.redirect("/login");
+    return ctx.redirect("/");
   },
 });
 

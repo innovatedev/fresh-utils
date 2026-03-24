@@ -361,11 +361,12 @@ export async function initAction(
     );
 
     // Variant login/register
+    const templateSuffix = `${suffix}${useDaisy ? "_daisyui" : ""}`;
     let loginContent = sanitizeImports(
-      await readTemplate(`routes/login${suffix}.tsx`),
+      await readTemplate(`routes/login${templateSuffix}.tsx`),
     );
     let registerContent = sanitizeImports(
-      await readTemplate(`routes/register${suffix}.tsx`),
+      await readTemplate(`routes/register${templateSuffix}.tsx`),
     );
 
     // Determine Auth Logic and Imports based on store
