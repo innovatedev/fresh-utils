@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.1
+
+- **Refactored `init` Command**: Split monolithic `init.ts` into modular
+  `helpers.ts` and `patchers.ts` for better maintainability.
+- **Configurable Auth Route Prefix**: Added support for custom auth routes
+  (e.g., `/auth/login`) via the initialization prompt.
+- **Improved `_app.tsx` Patching**: Added support for projects using
+  `define.page` for their main App component.
+- **Refined DaisyUI Detection**: Improved detection logic to support Tailwind v4
+  and varied configuration patterns.
+- **Stabilized Header Island**: Fixed dependency resolution for the fallback
+  Header island by using explicit npm specifiers.
+- **Optimized CLI Flow**: Consolidated all user prompts to the beginning of the
+  initialization process for a better UX.
+
 ## 0.4.0
 
 - **Init**: Automatically generates a global `Header` island and injects it into
@@ -11,7 +26,8 @@
   hardcoded framework classes.
 - **Init**: Updates the generated `/logout` route template to securely use a
   `POST` handler instead of `GET`.
-- **Init**: Fix login and register templates to not pass redundant `{ username }` in session data.
+- **Init**: Fix login and register templates to not pass redundant
+  `{ username }` in session data.
 
 ## 0.3.9
 
