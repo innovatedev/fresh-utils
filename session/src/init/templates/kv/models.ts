@@ -6,8 +6,9 @@ import type { SessionDoc } from "@innovatedev/fresh-session/kvdex-store";
 export type SessionData = KvValue;
 
 // Define User model for session user resolution
+// deno-lint-ignore ban-types
 export type User = {
-{{USER_FIELDS}}
+  // {{USER_FIELDS}}
 } & KvValue;
 
 export const SessionModel = model<SessionDoc<SessionData>>();

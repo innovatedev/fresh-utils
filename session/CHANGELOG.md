@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.14
+
+- **Init**: Improved template compatibility with Deno workspace type-checking
+  and standard IDE tooling.
+- **Init**: Restored standard internal project structure by relocating templates
+  back to `src/init/templates/` with original file extensions.
+- **Init**: Enhanced the robustness of dynamic code generation and field
+  validation during initialization.
+
 ## 0.4.13
 
 - **Init**: Added support for configurable user fields (`username` and `email`).

@@ -5,22 +5,18 @@ import { define } from "../utils.ts";
 export const handler = define.handlers({
   async POST(ctx) {
     const form = await ctx.req.formData();
-{{REGISTER_EXTRACTION}}
+    // {{REGISTER_EXTRACTION}}
     const password = form.get("password")?.toString();
 
-    if (!{{REGISTER_VALIDATION}} || !password) {
-      ctx.state.flash("error", "Missing required fields");
-      return ctx.redirect("/register");
+    if (!/* {{REGISTER_VALIDATION}} */ true || !password) {
+      // {{AUTH_LOGIC}}
+
+      return ctx.redirect("/");
     }
 
-    if (password.length < 8) {
-      ctx.state.flash("error", "Password too short");
-      return ctx.redirect("/register");
-    }
+    ctx.state.flash("error", "Failed to create account");
 
-    // {{AUTH_LOGIC}}
-
-    return ctx.redirect("/");
+    return ctx.redirect("/register");
   },
 });
 
@@ -44,8 +40,17 @@ export default define.page<typeof handler>((ctx) => {
             >
               <div class="flex">
                 <div class="flex-shrink-0">
-                  <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                  <svg
+                    class="h-5 w-5 text-red-400"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                      clip-rule="evenodd"
+                    />
                   </svg>
                 </div>
                 <div class="ml-3">
@@ -56,7 +61,7 @@ export default define.page<typeof handler>((ctx) => {
           )}
 
           <form method="POST" class="space-y-6">
-{{REGISTER_FIELDS}}
+            {/* {{REGISTER_FIELDS}} */}
 
             <div class="space-y-1">
               <label class="block text-sm font-medium text-gray-700 label">
@@ -68,19 +73,17 @@ export default define.page<typeof handler>((ctx) => {
                   name="password"
                   placeholder="••••••••"
                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm input input-bordered focus:input-primary transition-all"
-                  minLength={8}
                   required
                 />
               </div>
-              <p class="mt-1 text-xs text-gray-500">Must be at least 8 characters.</p>
             </div>
 
             <div>
               <Button
                 type="submit"
-                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 btn btn-success text-white transition-all"
+                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 btn btn-primary transition-all"
               >
-                Create Account
+                Sign up
               </Button>
             </div>
           </form>

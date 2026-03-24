@@ -279,7 +279,7 @@ export async function initAction(
       "kv/models.ts",
       sanitizeImports(
         (await readTemplate("kv/models.ts"))
-          .replace("{{USER_FIELDS}}", userFields),
+          .replace(/^\s*\/\/ {{USER_FIELDS}}/m, userFields),
       ),
       options.yes,
     );
@@ -287,20 +287,6 @@ export async function initAction(
 
   if (preset !== "none") {
     const suffix = isProd ? "_prod" : "_basic";
-
-    // Shared logout
-    let logoutContent = sanitizeImports(await readTemplate("routes/logout.ts"));
-    if (authPrefix) {
-      logoutContent = logoutContent.replace(
-        /"\/login"/g,
-        `"${authPrefix}/login"`,
-      );
-    }
-    await writeFile(
-      `routes${authPrefix}/(auth)/logout.ts`,
-      logoutContent,
-      options.yes,
-    );
 
     // Guest Middleware
     let guestMiddleware = sanitizeImports(
@@ -477,19 +463,35 @@ ${
 
     loginContent = sanitizeImports(
       loginContent
-        .replace("// {{AUTH_IMPORTS}}", authImports)
-        .replace("// {{AUTH_LOGIC}}", loginLogic)
+        .replace(/^\s*\/\/ {{AUTH_IMPORTS}}/m, authImports)
+        .replace(/^\s*\/\/ {{AUTH_LOGIC}}/m, loginLogic)
         .replace("{{LOGIN_LABEL}}", loginLabel)
         .replace("{{LOGIN_FIELD}}", loginField)
-        .replace("{{LOGIN_FIELDS}}", loginFields),
+        .replace(/^\s*{\/\* {{LOGIN_FIELDS}} \*\/}/m, loginFields),
     );
     registerContent = sanitizeImports(
       registerContent
-        .replace("// {{AUTH_IMPORTS}}", authImports)
-        .replace("// {{AUTH_LOGIC}}", registerLogic)
-        .replace("{{REGISTER_FIELDS}}", registerFields)
-        .replace("{{REGISTER_EXTRACTION}}", registerExtraction)
-        .replace("{{REGISTER_VALIDATION}}", registerValidation),
+        .replace(/^\s*\/\/ {{AUTH_IMPORTS}}/m, authImports)
+        .replace(/^\s*\/\/ {{AUTH_LOGIC}}/m, registerLogic)
+        .replace(/^\s*{\/\* {{REGISTER_FIELDS}} \*\/}/m, registerFields)
+        .replace(/^\s*\/\/ {{REGISTER_EXTRACTION}}/m, registerExtraction)
+        .replace(/\/\* {{REGISTER_VALIDATION}} \*\/ true/m, registerValidation),
+    );
+
+    // Shared logout
+    let logoutContent = (await readTemplate("routes/logout.ts"))
+      .replace(/^\s*\/\/ {{AUTH_LOGIC}}/m, loginLogic);
+    logoutContent = sanitizeImports(logoutContent);
+    if (authPrefix) {
+      logoutContent = logoutContent.replace(
+        /"\/login"/g,
+        `"${authPrefix}/login"`,
+      );
+    }
+    await writeFile(
+      `routes${authPrefix}/(auth)/logout.ts`,
+      logoutContent,
+      options.yes,
     );
 
     if (authPrefix) {
