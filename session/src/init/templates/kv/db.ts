@@ -8,7 +8,11 @@ const db = kvdex({
   kv,
   schema: {
     sessions: collection(SessionModel),
-    users: collection(UserModel),
+    users: collection(UserModel, {
+      indices: {
+        username: "primary",
+      },
+    }),
   },
 });
 

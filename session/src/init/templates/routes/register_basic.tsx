@@ -13,9 +13,6 @@ export const handler = define.handlers({
 
     // {{AUTH_LOGIC}}
 
-    // Log them in
-    await ctx.state.login(username);
-
     return ctx.redirect("/");
   },
 });

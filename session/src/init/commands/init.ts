@@ -197,7 +197,7 @@ export async function initAction(
       if (isKvdex) {
         loginLogic = `
       const { db } = await import("../kv/db.ts");
-      const userRes = await db.users.find(username);
+      const userRes = await db.users.findByPrimaryIndex("username", username);
       const user = userRes?.value;
 
       if (!user) {
@@ -217,9 +217,12 @@ ${
         }
         `.trim();
 
+        loginLogic = loginLogic + `
+      await ctx.state.login(userRes.id);`;
+
         registerLogic = `
     const { db } = await import("../kv/db.ts");
-    const existing = await db.users.find(username);
+    const existing = await db.users.findByPrimaryIndex("username", username);
     if (existing) {
       ctx.state.flash("error", "User already exists");
       return ctx.redirect("/register");
@@ -229,9 +232,21 @@ ${
           isProd
             ? `
     const passwordHash = await hash(password);
-    await db.users.add({ username, passwordHash });
+    const result = await db.users.add({ username, passwordHash });
+    if (!result.ok) {
+      ctx.state.flash("error", "Failed to create user");
+      return ctx.redirect("/register");
+    }
+    await ctx.state.login(result.id);
 `
-            : "    await db.users.add({ username });"
+            : `
+    const result = await db.users.add({ username });
+    if (!result.ok) {
+      ctx.state.flash("error", "Failed to create user");
+      return ctx.redirect("/register");
+    }
+    await ctx.state.login(result.id);
+`
         }
         `.trim();
       } else if (isKv) {

@@ -11,10 +11,6 @@ export const handler = define.handlers({
     if (username && password) {
       // {{AUTH_LOGIC}}
 
-      // 3. Log user in (Rotation is handled automatically)
-      // Note: In a real app, do this ONLY after verification passes!
-      await ctx.state.login(username);
-
       return ctx.redirect("/");
     }
 

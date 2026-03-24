@@ -1,18 +1,31 @@
 # Changelog
 
+## 0.4.5
+
+- **Init**: Fixed Kvdex authentication logic to correctly use primary indices for username lookups.
+- **Init**: Standardized session registration to log in using the generated document ID, ensuring compatibility with `KvDexSessionStorage`.
+- **Init**: Cleaned up auth templates to remove redundant hardcoded login calls.
+
 ## 0.4.4
 
-- **Init**: Store-aware authentication templates (`login.tsx`, `register.tsx`) now dynamically inject logic for the selected store (Deno KV or Kvdex).
-- **Init**: Robust `_app.tsx` patching handles `define.page` patterns and optional type annotations more reliably.
+- **Init**: Store-aware authentication templates (`login.tsx`, `register.tsx`)
+  now dynamically inject logic for the selected store (Deno KV or Kvdex).
+- **Init**: Robust `_app.tsx` patching handles `define.page` patterns and
+  optional type annotations more reliably.
 - **Init**: Added `passwordHash` to the `UserModel` template for Kvdex presets.
-- **CI**: Migrated to Node.js 24 and `actions/checkout@v6` for improved security and compliance.
+- **CI**: Migrated to Node.js 24 and `actions/checkout@v6` for improved security
+  and compliance.
 
 ## 0.4.3
 
-- **Init**: Simplified DaisyUI detection to strictly check `deno.json`/`deno.jsonc`.
-- **Init**: Refactored `CWD` to dynamic `getCWD()` function for better testability and isolation.
-- **Init**: Fixed `sanitizeImports` to correctly handle JSR/NPM dependency specifiers and versions.
-- **Tests**: Replaced filesystem-dependent tests with fully isolated unit tests using mock file readers.
+- **Init**: Simplified DaisyUI detection to strictly check
+  `deno.json`/`deno.jsonc`.
+- **Init**: Refactored `CWD` to dynamic `getCWD()` function for better
+  testability and isolation.
+- **Init**: Fixed `sanitizeImports` to correctly handle JSR/NPM dependency
+  specifiers and versions.
+- **Tests**: Replaced filesystem-dependent tests with fully isolated unit tests
+  using mock file readers.
 
 ## 0.4.2
 

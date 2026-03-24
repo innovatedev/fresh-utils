@@ -8,9 +8,6 @@ export const handler = define.handlers({
 
     if (username) {
       // {{AUTH_LOGIC}}
-
-      // Log user in
-      await ctx.state.login(username);
       return ctx.redirect("/");
     }
 
