@@ -1,5 +1,5 @@
 import { join } from "./deps.ts";
-import { CWD } from "./helpers.ts";
+import { getCWD } from "./helpers.ts";
 
 export function printStateExample(isKvdex = false) {
   const userImport = isKvdex
@@ -17,7 +17,7 @@ export async function patchUtilsState(
   shouldUpdateUtils: boolean,
   isKvdex = false,
 ) {
-  const utilsPath = join(CWD, "utils.ts");
+  const utilsPath = join(getCWD(), "utils.ts");
   try {
     const content = await Deno.readTextFile(utilsPath);
 
@@ -72,7 +72,7 @@ export async function patchUtilsState(
 }
 
 export async function patchAppTsx() {
-  const appPath = join(CWD, "routes/_app.tsx");
+  const appPath = join(getCWD(), "routes/_app.tsx");
   try {
     let content = await Deno.readTextFile(appPath);
     if (
@@ -121,7 +121,7 @@ export async function patchAppTsx() {
 }
 
 export async function patchMainTs(isKv = false) {
-  const mainTsPath = join(CWD, "main.ts");
+  const mainTsPath = join(getCWD(), "main.ts");
   try {
     let content = await Deno.readTextFile(mainTsPath);
     let patched = false;

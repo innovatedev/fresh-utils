@@ -125,12 +125,15 @@ Deno.test("hasDaisyUI", async (t) => {
     expect(await hasDaisyUI({ readFile })).toBe(false);
   });
 
-  await t.step("should return true if deno.jsonc contains daisyui", async () => {
-    const readFile = createMockReadFile({
-      "deno.jsonc": '{ "imports": { "daisyui": "npm:daisyui" } }',
-    });
-    expect(await hasDaisyUI({ readFile })).toBe(true);
-  });
+  await t.step(
+    "should return true if deno.jsonc contains daisyui",
+    async () => {
+      const readFile = createMockReadFile({
+        "deno.jsonc": '{ "imports": { "daisyui": "npm:daisyui" } }',
+      });
+      expect(await hasDaisyUI({ readFile })).toBe(true);
+    },
+  );
 
   await t.step("should return true if case is different", async () => {
     const readFile = createMockReadFile({
