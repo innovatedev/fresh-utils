@@ -12,7 +12,7 @@
     "./kvdex-store": "./src/stores/kvdex.ts"
   },
   "imports": {
-    "@preact/signals": "npm:@preact/signals@^2.8.2",
+    "@preact/signals": "npm:@preact/signals@^2.5.0",
     "fresh": "jsr:@fresh/core@^2.2.0",
     "@std/http": "jsr:@std/http@^1.0.22"
   },
