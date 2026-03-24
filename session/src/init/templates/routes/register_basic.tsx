@@ -4,7 +4,8 @@ import { define } from "../utils.ts";
 
 export const handler = define.handlers({
   async POST(ctx) {
-    const _form = await ctx.req.formData();
+    // deno-lint-ignore no-unused-vars
+    const form = await ctx.req.formData();
     // {{REGISTER_EXTRACTION}}
 
     // deno-lint-ignore no-constant-condition

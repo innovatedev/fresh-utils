@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.15
+
+- **Init**: Implemented indentation-aware code injection for perfectly formatted
+  output in generated files.
+- **Init**: Automatically strips internal `deno-lint-ignore` directives from
+  produced project files for a cleaner developer experience.
+- **Init**: Fixed a syntax error in the generated `/logout` route.
+- **Init**: Optimized registration field extraction logic and standardized
+  variable naming.
+
 ## 0.4.14
 
 - **Init**: Improved template compatibility with Deno workspace type-checking

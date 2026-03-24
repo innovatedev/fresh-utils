@@ -22,6 +22,46 @@ async function readTemplate(path: string): Promise<string> {
 }
 
 /**
+ * Dedents a multiline string by finding the minimum common indentation
+ */
+function dedent(str: string): string {
+  const lines = str.split("\n");
+  // Find first non-empty line to determine base indentation
+  const firstLine = lines.find((l) => l.trim().length > 0);
+  if (!firstLine) return str.trim();
+
+  const match = firstLine.match(/^(\s*)/);
+  const indent = match ? match[1] : "";
+
+  return lines
+    .map((line) => line.startsWith(indent) ? line.slice(indent.length) : line)
+    .join("\n")
+    .trim();
+}
+
+/**
+ * Replaces a placeholder in a string, preserving the indentation of the line where it was found
+ */
+function replaceWithIndent(
+  content: string,
+  placeholder: string,
+  replacement: string,
+): string {
+  const escaped = placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`^(\\s*)${escaped}`, "m");
+  const match = content.match(regex);
+  if (!match) return content;
+
+  const indent = match[1];
+  const indentedReplacement = replacement
+    .split("\n")
+    .map((line) => line.trim().length > 0 ? indent + line : "")
+    .join("\n");
+
+  return content.replace(regex, indentedReplacement);
+}
+
+/**
  * Usage: `deno run -Ar jsr:@innovatedev/fresh-session/init`
  *
  * @param options - Configuration options for the initialization.
@@ -196,29 +236,33 @@ export async function initAction(
   const registerFields = [
     enableUsername
       ? (useDaisy
-        ? `        <div class="form-control w-full">
-          <label class="label">
-            <span class="label-text font-semibold">Username</span>
-          </label>
-          <input type="text" name="username" placeholder="Username" class="input input-bordered w-full focus:input-primary transition-all" required />
-        </div>`
-        : `        <div class="space-y-1">
-          <label class="block text-sm font-medium text-gray-700">Username</label>
-          <input type="text" name="username" placeholder="Username" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required />
-        </div>`)
+        ? dedent(`
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text font-semibold">Username</span>
+              </label>
+              <input type="text" name="username" placeholder="Username" class="input input-bordered w-full focus:input-primary transition-all" required />
+            </div>`)
+        : dedent(`
+            <div class="space-y-1">
+              <label class="block text-sm font-medium text-gray-700">Username</label>
+              <input type="text" name="username" placeholder="Username" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required />
+            </div>`))
       : "",
     enableEmail
       ? (useDaisy
-        ? `        <div class="form-control w-full">
-          <label class="label">
-            <span class="label-text font-semibold">Email</span>
-          </label>
-          <input type="email" name="email" placeholder="email@example.com" class="input input-bordered w-full focus:input-primary transition-all" required />
-        </div>`
-        : `        <div class="space-y-1">
-          <label class="block text-sm font-medium text-gray-700">Email</label>
-          <input type="email" name="email" placeholder="email@example.com" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required />
-        </div>`)
+        ? dedent(`
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text font-semibold">Email</span>
+              </label>
+              <input type="email" name="email" placeholder="email@example.com" class="input input-bordered w-full focus:input-primary transition-all" required />
+            </div>`)
+        : dedent(`
+            <div class="space-y-1">
+              <label class="block text-sm font-medium text-gray-700">Email</label>
+              <input type="email" name="email" placeholder="email@example.com" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required />
+            </div>`))
       : "",
   ].filter(Boolean).join("\n");
 
@@ -229,22 +273,22 @@ export async function initAction(
   const loginType = loginField === "username" ? "text" : "email";
 
   const loginFields = useDaisy
-    ? `        <div class="form-control w-full">
+    ? dedent(`
+        <div class="form-control w-full">
           <label class="label">
             <span class="label-text font-semibold">${loginLabel}</span>
           </label>
           <input type="${loginType}" name="login" placeholder="${loginPlaceholder}" class="input input-bordered w-full focus:input-primary transition-all" required />
-        </div>`
-    : `        <div class="space-y-1">
+        </div>`)
+    : dedent(`
+        <div class="space-y-1">
           <label class="block text-sm font-medium text-gray-700">${loginLabel}</label>
           <input type="${loginType}" name="login" placeholder="${loginPlaceholder}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required />
-        </div>`;
+        </div>`);
 
   const registerExtraction = [
-    enableUsername
-      ? '    const username = form.get("username")?.toString();'
-      : "",
-    enableEmail ? '    const email = form.get("email")?.toString();' : "",
+    enableUsername ? 'const username = form.get("username")?.toString();' : "",
+    enableEmail ? 'const email = form.get("email")?.toString();' : "",
   ].filter(Boolean).join("\n");
 
   const registerValidation = [
@@ -278,8 +322,11 @@ export async function initAction(
     await writeFile(
       "kv/models.ts",
       sanitizeImports(
-        (await readTemplate("kv/models.ts"))
-          .replace(/^\s*\/\/ {{USER_FIELDS}}/m, userFields),
+        replaceWithIndent(
+          await readTemplate("kv/models.ts"),
+          "// {{USER_FIELDS}}",
+          userFields,
+        ),
       ),
       options.yes,
     );
@@ -331,75 +378,75 @@ export async function initAction(
       if (isProd) {
         authImports += `\nimport { verify, hash } from "@felix/argon2";`;
       }
-      loginLogic = `
-      const userRes = await db.users.findByPrimaryIndex("${loginField}", login);
-      const user = userRes?.value;
+      loginLogic = dedent(`
+        const userRes = await db.users.findByPrimaryIndex("${loginField}", login);
+        const user = userRes?.value;
 
-      if (!user) {
-        ctx.state.flash("error", "Invalid ${loginLabel} or password");
-        return ctx.redirect("${authPrefix || ""}/login");
-      }
-${
+        if (!user) {
+          ctx.state.flash("error", "Invalid ${loginLabel} or password");
+          return ctx.redirect("${authPrefix || ""}/login");
+        }
+        ${
         isProd
-          ? `
-      const isValid = await verify(user.passwordHash, password);
-      if (!isValid) {
-        ctx.state.flash("error", "Invalid ${loginLabel} or password");
-        return ctx.redirect("${authPrefix || ""}/login");
-      }
-`
+          ? dedent(`
+          const isValid = await verify(user.passwordHash, password);
+          if (!isValid) {
+            ctx.state.flash("error", "Invalid ${loginLabel} or password");
+            return ctx.redirect("${authPrefix || ""}/login");
+          }
+        `)
           : ""
       }
-      await ctx.state.login(userRes.id);
-        `.trim();
+        await ctx.state.login(userRes.id);
+      `);
 
-      registerLogic = `
-    const existing = await db.users.findByPrimaryIndex("${loginField}", ${loginField});
-    if (existing) {
-      ctx.state.flash("error", "User already exists");
-      return ctx.redirect("${authPrefix || ""}/register");
-    }
+      registerLogic = dedent(`
+        const existing = await db.users.findByPrimaryIndex("${loginField}", ${loginField});
+        if (existing) {
+          ctx.state.flash("error", "User already exists");
+          return ctx.redirect("${authPrefix || ""}/register");
+        }
 
-${
+        ${
         isProd
-          ? `
-    const passwordHash = await hash(password);
-    const result = await db.users.add({ ${
+          ? dedent(`
+          const passwordHash = await hash(password);
+          const result = await db.users.add({ ${
             [
               enableUsername ? "username" : "",
               enableEmail ? "email" : "",
               "passwordHash",
             ].filter(Boolean).join(", ")
           } });
-    if (!result.ok) {
-      ctx.state.flash("error", "Failed to create user");
-      return ctx.redirect("${authPrefix || ""}/register");
-    }
-    await ctx.state.login(result.id);
-`
-          : `
-    const result = await db.users.add({ ${
+          if (!result.ok) {
+            ctx.state.flash("error", "Failed to create user");
+            return ctx.redirect("${authPrefix || ""}/register");
+          }
+          await ctx.state.login(result.id);
+        `)
+          : dedent(`
+          const result = await db.users.add({ ${
             [
               enableUsername ? "username" : "",
               enableEmail ? "email" : "",
             ].filter(Boolean).join(", ")
           } });
-    if (!result.ok) {
-      ctx.state.flash("error", "Failed to create user");
-      return ctx.redirect("${authPrefix || ""}/register");
-    }
-    await ctx.state.login(result.id);
-`
+          if (!result.ok) {
+            ctx.state.flash("error", "Failed to create user");
+            return ctx.redirect("${authPrefix || ""}/register");
+          }
+          await ctx.state.login(result.id);
+        `)
       }
-        `.trim();
+      `);
     } else if (isKv) {
       if (isProd) {
         authImports = `import { verify, hash } from "@felix/argon2";`;
       }
-      loginLogic = `
-      const kv = await Deno.openKv();
-      const userRes = await kv.get(["users", login]);
-      const user = userRes.value as { ${
+      loginLogic = dedent(`
+        const kv = await Deno.openKv();
+        const userRes = await kv.get(["users", login]);
+        const user = userRes.value as { ${
         [
           enableUsername ? "username: string" : "",
           enableEmail ? "email: string" : "",
@@ -407,80 +454,110 @@ ${
         ].filter(Boolean).join("; ")
       } } | null;
 
-      if (!user) {
-        ctx.state.flash("error", "Invalid ${loginLabel} or password");
-        return ctx.redirect("${authPrefix || ""}/login");
-      }
+        if (!user) {
+          ctx.state.flash("error", "Invalid ${loginLabel} or password");
+          return ctx.redirect("${authPrefix || ""}/login");
+        }
 
-${
+        ${
         isProd
-          ? `
-      const isValid = await verify(user.passwordHash, password);
-      if (!isValid) {
-        ctx.state.flash("error", "Invalid ${loginLabel} or password");
-        return ctx.redirect("${authPrefix || ""}/login");
-      }
-`
+          ? dedent(`
+          const isValid = await verify(user.passwordHash, password);
+          if (!isValid) {
+            ctx.state.flash("error", "Invalid ${loginLabel} or password");
+            return ctx.redirect("${authPrefix || ""}/login");
+          }
+        `)
           : ""
       }
-      await ctx.state.login(login);
-        `.trim();
+        await ctx.state.login(login);
+      `);
 
-      registerLogic = `
-    const kv = await Deno.openKv();
-    const existing = await kv.get(["users", ${loginField}]);
-    if (existing.value) {
-      ctx.state.flash("error", "User already exists");
-      return ctx.redirect("${authPrefix || ""}/register");
-    }
+      registerLogic = dedent(`
+        const kv = await Deno.openKv();
+        const existing = await kv.get(["users", ${loginField}]);
+        if (existing.value) {
+          ctx.state.flash("error", "User already exists");
+          return ctx.redirect("${authPrefix || ""}/register");
+        }
 
-${
+        ${
         isProd
-          ? `
-    const passwordHash = await hash(password);
-    await kv.set(["users", ${loginField}], { ${
+          ? dedent(`
+          const passwordHash = await hash(password);
+          await kv.set(["users", ${loginField}], { ${
             [
               enableUsername ? "username" : "",
               enableEmail ? "email" : "",
               "passwordHash",
             ].filter(Boolean).join(", ")
           } });
-`
-          : `    await kv.set(["users", ${loginField}], { ${
+        `)
+          : dedent(`
+          await kv.set(["users", ${loginField}], { ${
             [
               enableUsername ? "username" : "",
               enableEmail ? "email" : "",
             ].filter(Boolean).join(", ")
-          } });`
+          } });
+        `)
       }
-    await ctx.state.login(${loginField});
-        `.trim();
+        await ctx.state.login(${loginField});
+      `);
     } else {
       // basic memory login
       loginLogic = `await ctx.state.login(login);`;
       registerLogic = `await ctx.state.login(${loginField});`;
     }
 
-    loginContent = sanitizeImports(
-      loginContent
-        .replace(/^\s*\/\/ {{AUTH_IMPORTS}}/m, authImports)
-        .replace(/^\s*\/\/ {{AUTH_LOGIC}}/m, loginLogic)
-        .replace("{{LOGIN_LABEL}}", loginLabel)
-        .replace("{{LOGIN_FIELD}}", loginField)
-        .replace(/^\s*{\/\* {{LOGIN_FIELDS}} \*\/}/m, loginFields),
+    loginContent = replaceWithIndent(
+      loginContent,
+      "// {{AUTH_IMPORTS}}",
+      authImports,
     );
-    registerContent = sanitizeImports(
-      registerContent
-        .replace(/^\s*\/\/ {{AUTH_IMPORTS}}/m, authImports)
-        .replace(/^\s*\/\/ {{AUTH_LOGIC}}/m, registerLogic)
-        .replace(/^\s*{\/\* {{REGISTER_FIELDS}} \*\/}/m, registerFields)
-        .replace(/^\s*\/\/ {{REGISTER_EXTRACTION}}/m, registerExtraction)
-        .replace(/\/\* {{REGISTER_VALIDATION}} \*\/ true/m, registerValidation),
+    loginContent = replaceWithIndent(
+      loginContent,
+      "// {{AUTH_LOGIC}}",
+      loginLogic,
     );
+    loginContent = loginContent
+      .replace("{{LOGIN_LABEL}}", loginLabel)
+      .replace("{{LOGIN_FIELD}}", loginField);
+    loginContent = replaceWithIndent(
+      loginContent,
+      "{/* {{LOGIN_FIELDS}} */}",
+      loginFields,
+    );
+    loginContent = sanitizeImports(loginContent);
+
+    registerContent = replaceWithIndent(
+      registerContent,
+      "// {{AUTH_IMPORTS}}",
+      authImports,
+    );
+    registerContent = replaceWithIndent(
+      registerContent,
+      "// {{AUTH_LOGIC}}",
+      registerLogic,
+    );
+    registerContent = replaceWithIndent(
+      registerContent,
+      "{/* {{REGISTER_FIELDS}} */}",
+      registerFields,
+    );
+    registerContent = replaceWithIndent(
+      registerContent,
+      "// {{REGISTER_EXTRACTION}}",
+      registerExtraction,
+    );
+    registerContent = registerContent.replace(
+      /\/\* {{REGISTER_VALIDATION}} \*\/ true/m,
+      registerValidation,
+    );
+    registerContent = sanitizeImports(registerContent);
 
     // Shared logout
-    let logoutContent = (await readTemplate("routes/logout.ts"))
-      .replace(/^\s*\/\/ {{AUTH_LOGIC}}/m, loginLogic);
+    let logoutContent = await readTemplate("routes/logout.ts");
     logoutContent = sanitizeImports(logoutContent);
     if (authPrefix) {
       logoutContent = logoutContent.replace(
