@@ -86,22 +86,20 @@ export async function patchAppTsx() {
       }
 
       content = content.replace(
-        /export default (?:define\.page\()?function App\(\{\s*([\w\s,]+?)\s*\}:\s*PageProps\)/,
+        /export default (?:define\.page\()?(?:function(?:\s+App)?\s*)\(\{\s*([\w\s,]+?)\s*\}\s*(?::\s*PageProps\s*)?\)\s*(?::\s*PageProps\s*)?/,
         (match, inner) => {
           const params = inner.split(",").map((s: string) => s.trim()).filter(
             Boolean,
           );
+          if (!params.includes("Component")) params.push("Component");
           if (!params.includes("state")) params.push("state");
           if (!params.includes("url")) params.push("url");
 
+          const paramStr = `{ ${params.join(", ")} }`;
           if (match.includes("define.page(")) {
-            return `export default define.page(function App({ ${
-              params.join(", ")
-            } }: PageProps)`;
+            return `export default define.page(function App(${paramStr}: PageProps)`;
           }
-          return `export default function App({ ${
-            params.join(", ")
-          } }: PageProps)`;
+          return `export default function App(${paramStr}: PageProps)`;
         },
       );
 
