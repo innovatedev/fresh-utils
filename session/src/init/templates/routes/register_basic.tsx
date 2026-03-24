@@ -5,10 +5,10 @@ import { define } from "../utils.ts";
 export const handler = define.handlers({
   async POST(ctx) {
     const form = await ctx.req.formData();
-    const username = form.get("username")?.toString();
+{{REGISTER_EXTRACTION}}
 
-    if (!username) {
-      ctx.state.flash("error", "Missing username");
+    if (!{{REGISTER_VALIDATION}}) {
+      ctx.state.flash("error", "Missing required fields");
       return ctx.redirect("/register");
     }
 
@@ -22,40 +22,69 @@ export default define.page<typeof handler>((ctx) => {
   const error = ctx.state.flash("error");
 
   return (
-    <div class="p-4 mx-auto max-w-screen-md">
-      <h1 class="text-2xl font-bold mb-4">Register</h1>
-
-      {error && (
-        <div
-          class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"
-          role="alert"
-        >
-          <span class="block sm:inline">{error}</span>
-        </div>
-      )}
-
-      <form method="POST" class="flex flex-col gap-4">
-        <div>
-          <label class="block mb-1">Username</label>
-          <input
-            type="text"
-            name="username"
-            class="border p-2 rounded w-full"
-            required
-          />
-        </div>
-        <Button
-          type="submit"
-          class="bg-green-500 text-white p-2 rounded w-full"
-        >
+    <div class="min-h-[80vh] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div class="sm:mx-auto sm:w-full sm:max-w-md">
+        <h1 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
           Register
-        </Button>
-      </form>
+        </h1>
+      </div>
 
-      <p class="mt-4 text-center">
-        Already have an account?{" "}
-        <a href="/login" class="text-blue-500 hover:underline">Login</a>
-      </p>
+      <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 card bg-base-100 shadow-xl border border-gray-100">
+          {error && (
+            <div
+              class="bg-red-50 border-l-4 border-red-400 p-4 mb-6 alert alert-error shadow-sm"
+              role="alert"
+            >
+              <div class="flex">
+                <div class="flex-shrink-0">
+                  <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+                <div class="ml-3">
+                  <p class="text-sm text-red-700">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <form method="POST" class="space-y-6">
+{{REGISTER_FIELDS}}
+
+            <div>
+              <Button
+                type="submit"
+                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 btn btn-success text-white transition-all"
+              >
+                Register
+              </Button>
+            </div>
+          </form>
+
+          <div class="mt-6">
+            <div class="relative">
+              <div class="absolute inset-0 flex items-center">
+                <div class="w-full border-t border-gray-300"></div>
+              </div>
+              <div class="relative flex justify-center text-sm">
+                <span class="px-2 bg-white text-gray-500 bg-base-100">
+                  Already have an account?
+                </span>
+              </div>
+            </div>
+
+            <div class="mt-6">
+              <a
+                href="/login"
+                class="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 btn btn-outline transition-all"
+              >
+                Sign in
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 });

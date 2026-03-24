@@ -1,8 +1,16 @@
 # Changelog
 
+## 0.4.13
+
+- **Init**: Added support for configurable user fields (`username` and `email`).
+  Users can now selectively enable these fields and choose a primary login
+  identifier during initialization.
+- **Init**: Overhauled authentication UI.
+
 ## 0.4.12
 
-- **Init**: Fixed `kv/` import resolution in authentication templates.
+- **Init**: Fixed relative path resolution for static imports in nested route
+  groups (e.g., `(guest)/login.tsx`).
 
 ## 0.4.11
 

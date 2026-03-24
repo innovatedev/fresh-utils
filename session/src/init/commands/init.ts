@@ -47,6 +47,9 @@ export async function initAction(
   let authPrefix = "";
   let shouldResetLock = false;
   let shouldAddUnstableKv = false;
+  let enableUsername = true;
+  let enableEmail = true;
+  let loginField: "username" | "email" = "email";
 
   if (!options.yes) {
     const useDefaults = await Confirm.prompt({
@@ -60,6 +63,9 @@ export async function initAction(
       authPrefix = "";
       shouldResetLock = true;
       shouldAddUnstableKv = true;
+      enableUsername = true;
+      enableEmail = true;
+      loginField = "email";
     } else {
       if (!preset) {
         const selectedPreset = await Select.prompt({
@@ -96,6 +102,36 @@ export async function initAction(
           | "kv-prod"
           | "kvdex-basic"
           | "kvdex-prod";
+      }
+
+      enableUsername = await Confirm.prompt({
+        message: "Enable username field?",
+        default: true,
+      });
+
+      enableEmail = await Confirm.prompt({
+        message: "Enable email field?",
+        default: true,
+      });
+
+      if (!enableUsername && !enableEmail) {
+        console.error(
+          "Error: You must enable at least one of username or email.",
+        );
+        Deno.exit(1);
+      }
+
+      if (enableUsername && enableEmail) {
+        loginField = await Select.prompt({
+          message: "Primary login field?",
+          options: [
+            { name: "Email", value: "email" },
+            { name: "Username", value: "username" },
+          ],
+          default: "email",
+        }) as "username" | "email";
+      } else {
+        loginField = enableEmail ? "email" : "username";
       }
 
       shouldUpdateUtils = await Confirm.prompt({
@@ -150,6 +186,72 @@ export async function initAction(
   const isKvdex = preset!.startsWith("kvdex");
   const isProd = preset!.endsWith("prod");
 
+  // Prepare dynamic field data
+  const userFields = [
+    enableUsername ? "  username: string;" : "",
+    enableEmail ? "  email: string;" : "",
+    isProd ? "  passwordHash: string;" : "",
+  ].filter(Boolean).join("\n");
+
+  const registerFields = [
+    enableUsername
+      ? (useDaisy
+        ? `        <div class="form-control w-full">
+          <label class="label">
+            <span class="label-text font-semibold">Username</span>
+          </label>
+          <input type="text" name="username" placeholder="Username" class="input input-bordered w-full focus:input-primary transition-all" required />
+        </div>`
+        : `        <div class="space-y-1">
+          <label class="block text-sm font-medium text-gray-700">Username</label>
+          <input type="text" name="username" placeholder="Username" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required />
+        </div>`)
+      : "",
+    enableEmail
+      ? (useDaisy
+        ? `        <div class="form-control w-full">
+          <label class="label">
+            <span class="label-text font-semibold">Email</span>
+          </label>
+          <input type="email" name="email" placeholder="email@example.com" class="input input-bordered w-full focus:input-primary transition-all" required />
+        </div>`
+        : `        <div class="space-y-1">
+          <label class="block text-sm font-medium text-gray-700">Email</label>
+          <input type="email" name="email" placeholder="email@example.com" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required />
+        </div>`)
+      : "",
+  ].filter(Boolean).join("\n");
+
+  const loginLabel = loginField === "username" ? "Username" : "Email";
+  const loginPlaceholder = loginField === "username"
+    ? "Username"
+    : "email@example.com";
+  const loginType = loginField === "username" ? "text" : "email";
+
+  const loginFields = useDaisy
+    ? `        <div class="form-control w-full">
+          <label class="label">
+            <span class="label-text font-semibold">${loginLabel}</span>
+          </label>
+          <input type="${loginType}" name="login" placeholder="${loginPlaceholder}" class="input input-bordered w-full focus:input-primary transition-all" required />
+        </div>`
+    : `        <div class="space-y-1">
+          <label class="block text-sm font-medium text-gray-700">${loginLabel}</label>
+          <input type="${loginType}" name="login" placeholder="${loginPlaceholder}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required />
+        </div>`;
+
+  const registerExtraction = [
+    enableUsername
+      ? '    const username = form.get("username")?.toString();'
+      : "",
+    enableEmail ? '    const email = form.get("email")?.toString();' : "",
+  ].filter(Boolean).join("\n");
+
+  const registerValidation = [
+    enableUsername ? "username" : "",
+    enableEmail ? "email" : "",
+  ].filter(Boolean).join(" && ");
+
   // Define templates based on store
   let configTemplate = "config/memory.ts";
   if (isKvdex) configTemplate = "config/kvdex.ts";
@@ -175,7 +277,10 @@ export async function initAction(
     );
     await writeFile(
       "kv/models.ts",
-      sanitizeImports(await readTemplate("kv/models.ts")),
+      sanitizeImports(
+        (await readTemplate("kv/models.ts"))
+          .replace("{{USER_FIELDS}}", userFields),
+      ),
       options.yes,
     );
   }
@@ -241,11 +346,11 @@ export async function initAction(
         authImports += `\nimport { verify, hash } from "@felix/argon2";`;
       }
       loginLogic = `
-      const userRes = await db.users.findByPrimaryIndex("username", username);
+      const userRes = await db.users.findByPrimaryIndex("${loginField}", login);
       const user = userRes?.value;
 
       if (!user) {
-        ctx.state.flash("error", "Invalid username or password");
+        ctx.state.flash("error", "Invalid ${loginLabel} or password");
         return ctx.redirect("${authPrefix || ""}/login");
       }
 ${
@@ -253,7 +358,7 @@ ${
           ? `
       const isValid = await verify(user.passwordHash, password);
       if (!isValid) {
-        ctx.state.flash("error", "Invalid username or password");
+        ctx.state.flash("error", "Invalid ${loginLabel} or password");
         return ctx.redirect("${authPrefix || ""}/login");
       }
 `
@@ -263,7 +368,7 @@ ${
         `.trim();
 
       registerLogic = `
-    const existing = await db.users.findByPrimaryIndex("username", username);
+    const existing = await db.users.findByPrimaryIndex("${loginField}", ${loginField});
     if (existing) {
       ctx.state.flash("error", "User already exists");
       return ctx.redirect("${authPrefix || ""}/register");
@@ -273,7 +378,13 @@ ${
         isProd
           ? `
     const passwordHash = await hash(password);
-    const result = await db.users.add({ username, passwordHash });
+    const result = await db.users.add({ ${
+            [
+              enableUsername ? "username" : "",
+              enableEmail ? "email" : "",
+              "passwordHash",
+            ].filter(Boolean).join(", ")
+          } });
     if (!result.ok) {
       ctx.state.flash("error", "Failed to create user");
       return ctx.redirect("${authPrefix || ""}/register");
@@ -281,7 +392,12 @@ ${
     await ctx.state.login(result.id);
 `
           : `
-    const result = await db.users.add({ username });
+    const result = await db.users.add({ ${
+            [
+              enableUsername ? "username" : "",
+              enableEmail ? "email" : "",
+            ].filter(Boolean).join(", ")
+          } });
     if (!result.ok) {
       ctx.state.flash("error", "Failed to create user");
       return ctx.redirect("${authPrefix || ""}/register");
@@ -296,13 +412,17 @@ ${
       }
       loginLogic = `
       const kv = await Deno.openKv();
-      const userRes = await kv.get(["users", username]);
-      const user = userRes.value as { username: string${
-        isProd ? "; passwordHash: string" : ""
+      const userRes = await kv.get(["users", login]);
+      const user = userRes.value as { ${
+        [
+          enableUsername ? "username: string" : "",
+          enableEmail ? "email: string" : "",
+          isProd ? "passwordHash: string" : "",
+        ].filter(Boolean).join("; ")
       } } | null;
 
       if (!user) {
-        ctx.state.flash("error", "Invalid username or password");
+        ctx.state.flash("error", "Invalid ${loginLabel} or password");
         return ctx.redirect("${authPrefix || ""}/login");
       }
 
@@ -311,18 +431,18 @@ ${
           ? `
       const isValid = await verify(user.passwordHash, password);
       if (!isValid) {
-        ctx.state.flash("error", "Invalid username or password");
+        ctx.state.flash("error", "Invalid ${loginLabel} or password");
         return ctx.redirect("${authPrefix || ""}/login");
       }
 `
           : ""
       }
-      await ctx.state.login(username);
+      await ctx.state.login(login);
         `.trim();
 
       registerLogic = `
     const kv = await Deno.openKv();
-    const existing = await kv.get(["users", username]);
+    const existing = await kv.get(["users", ${loginField}]);
     if (existing.value) {
       ctx.state.flash("error", "User already exists");
       return ctx.redirect("${authPrefix || ""}/register");
@@ -332,27 +452,44 @@ ${
         isProd
           ? `
     const passwordHash = await hash(password);
-    await kv.set(["users", username], { username, passwordHash });
+    await kv.set(["users", ${loginField}], { ${
+            [
+              enableUsername ? "username" : "",
+              enableEmail ? "email" : "",
+              "passwordHash",
+            ].filter(Boolean).join(", ")
+          } });
 `
-          : '    await kv.set(["users", username], { username });'
+          : `    await kv.set(["users", ${loginField}], { ${
+            [
+              enableUsername ? "username" : "",
+              enableEmail ? "email" : "",
+            ].filter(Boolean).join(", ")
+          } });`
       }
-    await ctx.state.login(username);
+    await ctx.state.login(${loginField});
         `.trim();
     } else {
       // basic memory login
-      loginLogic = `await ctx.state.login(username);`;
-      registerLogic = `await ctx.state.login(username);`;
+      loginLogic = `await ctx.state.login(login);`;
+      registerLogic = `await ctx.state.login(${loginField});`;
     }
 
     loginContent = sanitizeImports(
       loginContent
         .replace("// {{AUTH_IMPORTS}}", authImports)
-        .replace("// {{AUTH_LOGIC}}", loginLogic),
+        .replace("// {{AUTH_LOGIC}}", loginLogic)
+        .replace("{{LOGIN_LABEL}}", loginLabel)
+        .replace("{{LOGIN_FIELD}}", loginField)
+        .replace("{{LOGIN_FIELDS}}", loginFields),
     );
     registerContent = sanitizeImports(
       registerContent
         .replace("// {{AUTH_IMPORTS}}", authImports)
-        .replace("// {{AUTH_LOGIC}}", registerLogic),
+        .replace("// {{AUTH_LOGIC}}", registerLogic)
+        .replace("{{REGISTER_FIELDS}}", registerFields)
+        .replace("{{REGISTER_EXTRACTION}}", registerExtraction)
+        .replace("{{REGISTER_VALIDATION}}", registerValidation),
     );
 
     if (authPrefix) {
