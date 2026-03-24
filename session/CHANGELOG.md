@@ -1,8 +1,18 @@
 # Changelog
 
+## 0.4.4
+
+- **Init**: Store-aware authentication templates (`login.tsx`, `register.tsx`) now dynamically inject logic for the selected store (Deno KV or Kvdex).
+- **Init**: Robust `_app.tsx` patching handles `define.page` patterns and optional type annotations more reliably.
+- **Init**: Added `passwordHash` to the `UserModel` template for Kvdex presets.
+- **CI**: Migrated to Node.js 24 and `actions/checkout@v6` for improved security and compliance.
+
 ## 0.4.3
 
-- **Init**: Fix daisyui detection
+- **Init**: Simplified DaisyUI detection to strictly check `deno.json`/`deno.jsonc`.
+- **Init**: Refactored `CWD` to dynamic `getCWD()` function for better testability and isolation.
+- **Init**: Fixed `sanitizeImports` to correctly handle JSR/NPM dependency specifiers and versions.
+- **Tests**: Replaced filesystem-dependent tests with fully isolated unit tests using mock file readers.
 
 ## 0.4.2
 
