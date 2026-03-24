@@ -1,8 +1,13 @@
 # Changelog
 
+## 0.4.2
+
+- **Init**: Removed npm/jsr prefix in generated files
+
 ## 0.4.1
 
-- **Init**: Fixed `deno.json` import alias for `fresh-session` to use `npm:` specifier.
+- **Init**: Fixed `deno.json` import alias for `fresh-session` to use `npm:`
+  specifier.
 
 ## 0.4.1
 
