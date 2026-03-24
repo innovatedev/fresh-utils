@@ -1,3 +1,4 @@
+// {{AUTH_IMPORTS}}
 import { Button } from "../components/Button.tsx";
 import { define } from "../utils.ts";
 

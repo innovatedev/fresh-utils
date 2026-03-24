@@ -1,6 +1,6 @@
+// {{AUTH_IMPORTS}}
 import { Button } from "../components/Button.tsx";
 import { define } from "../utils.ts";
-/* import { verify } from "@felix/argon2"; */
 
 export const handler = define.handlers({
   async POST(ctx) {

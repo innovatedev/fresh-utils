@@ -230,14 +230,17 @@ export async function initAction(
       await readTemplate(`routes/register${suffix}.tsx`),
     );
 
-    if (isProd) {
-      // Determine Auth Logic based on store
-      let loginLogic = "";
-      let registerLogic = "";
+    // Determine Auth Logic and Imports based on store
+    let loginLogic = "";
+    let registerLogic = "";
+    let authImports = "";
 
-      if (isKvdex) {
-        loginLogic = `
-      const { db } = await import("../kv/db.ts");
+    if (isKvdex) {
+      authImports = `import { db } from "../kv/db.ts";`;
+      if (isProd) {
+        authImports += `\nimport { verify, hash } from "@felix/argon2";`;
+      }
+      loginLogic = `
       const userRes = await db.users.findByPrimaryIndex("username", username);
       const user = userRes?.value;
 
@@ -246,23 +249,20 @@ export async function initAction(
         return ctx.redirect("${authPrefix || ""}/login");
       }
 ${
-          isProd
-            ? `
+        isProd
+          ? `
       const isValid = await verify(user.passwordHash, password);
       if (!isValid) {
         ctx.state.flash("error", "Invalid username or password");
         return ctx.redirect("${authPrefix || ""}/login");
       }
 `
-            : ""
-        }
+          : ""
+      }
+      await ctx.state.login(userRes.id);
         `.trim();
 
-        loginLogic = loginLogic + `
-      await ctx.state.login(userRes.id);`;
-
-        registerLogic = `
-    const { db } = await import("../kv/db.ts");
+      registerLogic = `
     const existing = await db.users.findByPrimaryIndex("username", username);
     if (existing) {
       ctx.state.flash("error", "User already exists");
@@ -270,8 +270,8 @@ ${
     }
 
 ${
-          isProd
-            ? `
+        isProd
+          ? `
     const passwordHash = await hash(password);
     const result = await db.users.add({ username, passwordHash });
     if (!result.ok) {
@@ -280,7 +280,7 @@ ${
     }
     await ctx.state.login(result.id);
 `
-            : `
+          : `
     const result = await db.users.add({ username });
     if (!result.ok) {
       ctx.state.flash("error", "Failed to create user");
@@ -288,15 +288,18 @@ ${
     }
     await ctx.state.login(result.id);
 `
-        }
+      }
         `.trim();
-      } else if (isKv) {
-        loginLogic = `
+    } else if (isKv) {
+      if (isProd) {
+        authImports = `import { verify, hash } from "@felix/argon2";`;
+      }
+      loginLogic = `
       const kv = await Deno.openKv();
       const userRes = await kv.get(["users", username]);
       const user = userRes.value as { username: string${
-          isProd ? "; passwordHash: string" : ""
-        } } | null;
+        isProd ? "; passwordHash: string" : ""
+      } } | null;
 
       if (!user) {
         ctx.state.flash("error", "Invalid username or password");
@@ -304,19 +307,20 @@ ${
       }
 
 ${
-          isProd
-            ? `
+        isProd
+          ? `
       const isValid = await verify(user.passwordHash, password);
       if (!isValid) {
         ctx.state.flash("error", "Invalid username or password");
         return ctx.redirect("${authPrefix || ""}/login");
       }
 `
-            : ""
-        }
+          : ""
+      }
+      await ctx.state.login(username);
         `.trim();
 
-        registerLogic = `
+      registerLogic = `
     const kv = await Deno.openKv();
     const existing = await kv.get(["users", username]);
     if (existing.value) {
@@ -325,27 +329,27 @@ ${
     }
 
 ${
-          isProd
-            ? `
+        isProd
+          ? `
     const passwordHash = await hash(password);
     await kv.set(["users", username], { username, passwordHash });
 `
-            : '    await kv.set(["users", username], { username });'
-        }
+          : '    await kv.set(["users", username], { username });'
+      }
+    await ctx.state.login(username);
         `.trim();
-      }
-
-      loginContent = loginContent.replace("// {{AUTH_LOGIC}}", loginLogic);
-      registerContent = registerContent.replace(
-        "// {{AUTH_LOGIC}}",
-        registerLogic,
-      );
-
-      if (isProd) {
-        loginContent = loginContent.replace(/\/\*|\*\//g, "");
-        registerContent = registerContent.replace(/\/\*|\*\//g, "");
-      }
+    } else {
+      // basic memory login
+      loginLogic = `await ctx.state.login(username);`;
+      registerLogic = `await ctx.state.login(username);`;
     }
+
+    loginContent = loginContent
+      .replace("// {{AUTH_IMPORTS}}", authImports)
+      .replace("// {{AUTH_LOGIC}}", loginLogic);
+    registerContent = registerContent
+      .replace("// {{AUTH_IMPORTS}}", authImports)
+      .replace("// {{AUTH_LOGIC}}", registerLogic);
 
     if (authPrefix) {
       loginContent = loginContent

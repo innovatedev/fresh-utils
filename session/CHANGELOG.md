@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.11
+
+- **Init**: Refactored `argon2` imports to be injected via `AUTH_IMPORTS`
+  alongside database imports, simplifying template maintenance.
+- **Init**: Authentication templates now use static top-level imports instead of
+  dynamic `await import()` for better performance and DX.
+- **Init**: Fixed dynamic `kv/` import resolution in nested route groups.
+- **Exports**: Fixed `guestOnlyMiddleware` and `authOnlyMiddleware` types to be
+  compatible with strict project `State` interfaces.
+
 ## 0.4.10
 
 - **Init**: Fixed `Button.tsx` import resolution in route groups.
