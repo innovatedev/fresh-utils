@@ -190,12 +190,105 @@ export async function initAction(
     );
 
     if (isProd) {
-      // Uncomment DB logic for production preset
-      loginContent = loginContent.replace(/\/\*|\*\//g, "").replace(
-        "      // Note: In a real app, do this ONLY after verification passes!\n",
-        "",
+      // Determine Auth Logic based on store
+      let loginLogic = "";
+      let registerLogic = "";
+
+      if (isKvdex) {
+        loginLogic = `
+      const { db } = await import("../kv/db.ts");
+      const userRes = await db.users.find(username);
+      const user = userRes?.value;
+
+      if (!user) {
+        ctx.state.flash("error", "Invalid username or password");
+        return ctx.redirect("/login");
+      }
+${
+          isProd
+            ? `
+      const isValid = await verify(user.passwordHash, password);
+      if (!isValid) {
+        ctx.state.flash("error", "Invalid username or password");
+        return ctx.redirect("/login");
+      }
+`
+            : ""
+        }
+        `.trim();
+
+        registerLogic = `
+    const { db } = await import("../kv/db.ts");
+    const existing = await db.users.find(username);
+    if (existing) {
+      ctx.state.flash("error", "User already exists");
+      return ctx.redirect("/register");
+    }
+
+${
+          isProd
+            ? `
+    const passwordHash = await hash(password);
+    await db.users.add({ username, passwordHash });
+`
+            : "    await db.users.add({ username });"
+        }
+        `.trim();
+      } else if (isKv) {
+        loginLogic = `
+      const kv = await Deno.openKv();
+      const userRes = await kv.get(["users", username]);
+      const user = userRes.value as { username: string${
+          isProd ? "; passwordHash: string" : ""
+        } } | null;
+
+      if (!user) {
+        ctx.state.flash("error", "Invalid username or password");
+        return ctx.redirect("/login");
+      }
+
+${
+          isProd
+            ? `
+      const isValid = await verify(user.passwordHash, password);
+      if (!isValid) {
+        ctx.state.flash("error", "Invalid username or password");
+        return ctx.redirect("/login");
+      }
+`
+            : ""
+        }
+        `.trim();
+
+        registerLogic = `
+    const kv = await Deno.openKv();
+    const existing = await kv.get(["users", username]);
+    if (existing.value) {
+      ctx.state.flash("error", "User already exists");
+      return ctx.redirect("/register");
+    }
+
+${
+          isProd
+            ? `
+    const passwordHash = await hash(password);
+    await kv.set(["users", username], { username, passwordHash });
+`
+            : '    await kv.set(["users", username], { username });'
+        }
+        `.trim();
+      }
+
+      loginContent = loginContent.replace("// {{AUTH_LOGIC}}", loginLogic);
+      registerContent = registerContent.replace(
+        "// {{AUTH_LOGIC}}",
+        registerLogic,
       );
-      registerContent = registerContent.replace(/\/\*|\*\//g, "");
+
+      if (isProd) {
+        loginContent = loginContent.replace(/\/\*|\*\//g, "");
+        registerContent = registerContent.replace(/\/\*|\*\//g, "");
+      }
     }
 
     if (authPrefix) {

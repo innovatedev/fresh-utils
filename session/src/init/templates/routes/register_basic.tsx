@@ -11,7 +11,7 @@ export const handler = define.handlers({
       return ctx.redirect("/register");
     }
 
-    // Logic to save user goes here
+    // {{AUTH_LOGIC}}
 
     // Log them in
     await ctx.state.login(username);

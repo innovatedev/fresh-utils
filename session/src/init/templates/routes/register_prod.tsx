@@ -18,21 +18,7 @@ export const handler = define.handlers({
       return ctx.redirect("/register");
     }
 
-    /*
-    const kv = await Deno.openKv();
-    const existing = await kv.get(["users", username]);
-    if (existing.value) {
-       ctx.state.flash("error", "User already exists");
-       return ctx.redirect("/register");
-    }
-
-    // 1. Hash the password
-    const passwordHash = await hash(password);
-
-    // 2. Save user to DB (Example using Deno KV)
-    const user = { username, passwordHash };
-    await kv.set(["users", username], user);
-    */
+    // {{AUTH_LOGIC}}
 
     // 3. Log them in
     await ctx.state.login(username);

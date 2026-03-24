@@ -9,25 +9,7 @@ export const handler = define.handlers({
     const password = form.get("password")?.toString();
 
     if (username && password) {
-      // 1. Fetch user from DB (Example using Deno KV)
-      /*
-      const kv = await Deno.openKv();
-      const userRes = await kv.get(["users", username]);
-      const user = userRes.value as { username: string; passwordHash: string } | null;
-
-      if (!user) {
-         // User not found (generic error for security)
-         ctx.state.flash("error", "Invalid username or password");
-         return ctx.redirect("/login");
-      }
-
-      // 2. Verify password
-      const isValid = await verify(user.passwordHash, password);
-      if (!isValid) {
-         ctx.state.flash("error", "Invalid username or password");
-         return ctx.redirect("/login");
-      }
-      */
+      // {{AUTH_LOGIC}}
 
       // 3. Log user in (Rotation is handled automatically)
       // Note: In a real app, do this ONLY after verification passes!

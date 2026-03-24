@@ -8,6 +8,7 @@ export type SessionData = KvValue;
 // Define User model for session user resolution
 export type User = {
   username: string;
+  passwordHash: string;
 } & KvValue;
 
 export const SessionModel = model<SessionDoc<SessionData>>();

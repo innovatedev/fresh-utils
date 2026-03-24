@@ -7,7 +7,7 @@ export const handler = define.handlers({
     const username = form.get("username")?.toString();
 
     if (username) {
-      // Logic to verify credentials goes here
+      // {{AUTH_LOGIC}}
 
       // Log user in
       await ctx.state.login(username);
