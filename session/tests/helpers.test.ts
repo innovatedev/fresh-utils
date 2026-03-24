@@ -71,6 +71,15 @@ import { KvStore } from "@innovatedev/fresh-session/kv-store";
     expect(sanitizeImports(input)).toBe(expected);
   });
 
+  await t.step(
+    "should rewrite relative Button.tsx to @/components/Button.tsx",
+    () => {
+      const input = 'import { Button } from "../components/Button.tsx";';
+      const expected = 'import { Button } from "@/components/Button.tsx";';
+      expect(sanitizeImports(input)).toBe(expected);
+    },
+  );
+
   await t.step("should trim leading whitespace", () => {
     const input = '   \n\nimport { h } from "preact";';
     const expected = 'import { h } from "preact";';

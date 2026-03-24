@@ -69,6 +69,10 @@ export function sanitizeImports(content: string): string {
       /from "(\.\.\/)+utils\.ts"/g,
       'from "@/utils.ts"',
     )
+    .replace(
+      /from "(\.\.\/)+components\/Button\.tsx"/g,
+      'from "@/components/Button.tsx"',
+    )
     .trimStart();
 }
 
