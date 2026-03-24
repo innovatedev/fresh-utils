@@ -97,7 +97,7 @@ export async function patchAppTsx() {
 
           const paramStr = `{ ${params.join(", ")} }`;
           if (match.includes("define.page(")) {
-            return `export default define.page(function App(${paramStr}: PageProps)`;
+            return `export default define.page(function App(${paramStr})`;
           }
           return `export default function App(${paramStr}: PageProps)`;
         },
