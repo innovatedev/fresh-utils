@@ -1,9 +1,16 @@
 # Changelog
 
+## 0.4.6
+
+- **Init**: Fixed props for define on _app.tsx
+- **Init**: Fixed signals version to match fresh@2.2.0
+
 ## 0.4.5
 
-- **Init**: Fixed Kvdex authentication logic to correctly use primary indices for username lookups.
-- **Init**: Standardized session registration to log in using the generated document ID, ensuring compatibility with `KvDexSessionStorage`.
+- **Init**: Fixed Kvdex authentication logic to correctly use primary indices
+  for username lookups.
+- **Init**: Standardized session registration to log in using the generated
+  document ID, ensuring compatibility with `KvDexSessionStorage`.
 - **Init**: Cleaned up auth templates to remove redundant hardcoded login calls.
 
 ## 0.4.4
