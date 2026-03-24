@@ -135,7 +135,7 @@ type DenoJsonConfig = {
   imports?: Record<string, string>;
 };
 
-export async function ensureUnstableKv(yes?: boolean) {
+export async function ensureUnstableKv(yes?: boolean, force = false) {
   const denoJsonPath = join(getCWD(), "deno.json");
   try {
     const content = await Deno.readTextFile(denoJsonPath);
@@ -155,6 +155,7 @@ export async function ensureUnstableKv(yes?: boolean) {
     }
 
     if (
+      !force &&
       !await confirm(
         "Deno KV requires 'kv' to be listed in the 'unstable' config in deno.json. Add it?",
         yes,

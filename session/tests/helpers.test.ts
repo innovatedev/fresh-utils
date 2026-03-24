@@ -78,7 +78,7 @@ import { KvStore } from "@innovatedev/fresh-session/kv-store";
   });
 
   await t.step("should handle complex combined input", () => {
-    const input = `
+    const _input = `
 /** @jsx h */
 import { session } from "../../mod.ts";
 import { KvStore } from "../stores/kv.ts";

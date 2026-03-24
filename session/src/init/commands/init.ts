@@ -32,6 +32,7 @@ export async function initAction(
   console.log("Initializing session middleware...");
 
   await checkFreshVersion();
+  const useDaisy = await hasDaisyUI();
 
   let preset = options.preset as
     | "none"
@@ -42,72 +43,85 @@ export async function initAction(
     | "kvdex-prod"
     | undefined;
 
-  // Validate passed preset if any
-  const validPresets = [
-    "none",
-    "basic",
-    "kv-basic",
-    "kv-prod",
-    "kvdex-basic",
-    "kvdex-prod",
-  ];
-  if (preset && !validPresets.includes(preset)) {
-    console.error(`Invalid preset: ${preset}`);
-    console.error(`Available presets: ${validPresets.join(", ")}`);
-    Deno.exit(1);
-  }
-
-  let shouldUpdateUtils = false;
+  let shouldUpdateUtils = true;
   let authPrefix = "";
+  let shouldResetLock = false;
+  let shouldAddUnstableKv = false;
 
   if (!options.yes) {
-    if (!preset) {
-      const selectedPreset = await Select.prompt({
-        message: "Select an initialization preset:",
-        options: [
-          { name: "None (Config only, no routes)", value: "none" },
-          {
-            name: "Basic (Memory Store, Simple Auth Templates)",
-            value: "basic",
-          },
-          {
-            name: "KV Basic (Deno KV, Simple Auth Templates)",
-            value: "kv-basic",
-          },
-          {
-            name: "KV Production (Deno KV, Argon2 + Auth Templates)",
-            value: "kv-prod",
-          },
-          {
-            name: "Kvdex Basic (Structured KV, Simple Auth Templates)",
-            value: "kvdex-basic",
-          },
-          {
-            name: "Kvdex Production (Structured KV, Argon2 + Auth Templates)",
-            value: "kvdex-prod",
-          },
-        ],
-        default: "none",
-      });
-      preset = selectedPreset as
-        | "none"
-        | "basic"
-        | "kv-basic"
-        | "kv-prod"
-        | "kvdex-basic"
-        | "kvdex-prod";
-    }
-
-    shouldUpdateUtils = await Confirm.prompt({
-      message: "Update utils.ts State interface automatically?",
+    const useDefaults = await Confirm.prompt({
+      message: "Run with defaults? (Kvdex Production, Argon2, Prefix: none)",
       default: true,
     });
 
-    if (preset !== "none") {
-      authPrefix = await Input.prompt({
-        message: "Auth route prefix? (e.g. /auth, default: none)",
-        default: "",
+    if (useDefaults) {
+      preset = "kvdex-prod";
+      shouldUpdateUtils = true;
+      authPrefix = "";
+      shouldResetLock = true;
+      shouldAddUnstableKv = true;
+    } else {
+      if (!preset) {
+        const selectedPreset = await Select.prompt({
+          message: "Select an initialization preset:",
+          options: [
+            { name: "None (Config only, no routes)", value: "none" },
+            {
+              name: "Basic (Memory Store, Simple Auth Templates)",
+              value: "basic",
+            },
+            {
+              name: "KV Basic (Deno KV, Simple Auth Templates)",
+              value: "kv-basic",
+            },
+            {
+              name: "KV Production (Deno KV, Argon2 + Auth Templates)",
+              value: "kv-prod",
+            },
+            {
+              name: "Kvdex Basic (Structured KV, Simple Auth Templates)",
+              value: "kvdex-basic",
+            },
+            {
+              name: "Kvdex Production (Structured KV, Argon2 + Auth Templates)",
+              value: "kvdex-prod",
+            },
+          ],
+          default: "kvdex-prod",
+        });
+        preset = selectedPreset as
+          | "none"
+          | "basic"
+          | "kv-basic"
+          | "kv-prod"
+          | "kvdex-basic"
+          | "kvdex-prod";
+      }
+
+      shouldUpdateUtils = await Confirm.prompt({
+        message: "Update utils.ts State interface automatically?",
+        default: true,
       });
+
+      if (preset !== "none") {
+        authPrefix = await Input.prompt({
+          message: "Auth route prefix? (e.g. /auth, default: none)",
+          default: "",
+        });
+      }
+
+      shouldResetLock = await Confirm.prompt({
+        message: "Reset lock file? (Resolves Preact dependency issues)",
+        default: true,
+      });
+
+      if (preset!.startsWith("kv") || preset!.startsWith("kvdex")) {
+        shouldAddUnstableKv = await Confirm.prompt({
+          message:
+            "Add 'kv' to 'unstable' in deno.json? (Required for Deno KV)",
+          default: true,
+        });
+      }
     }
   } else {
     // Defaults for non-interactive
@@ -120,6 +134,8 @@ export async function initAction(
     }
     shouldUpdateUtils = true;
     authPrefix = "";
+    shouldResetLock = true;
+    shouldAddUnstableKv = true;
   }
 
   if (authPrefix && !authPrefix.startsWith("/")) {
@@ -144,7 +160,7 @@ export async function initAction(
   // 1. Deno JSON Dependency Injection
   await updateDenoJson(options.yes, isProd, isKvdex);
   if (isKv) {
-    await ensureUnstableKv(options.yes);
+    await ensureUnstableKv(options.yes, shouldAddUnstableKv);
   }
 
   // 2. Config & Routes
@@ -351,7 +367,6 @@ ${
       options.yes,
     );
 
-    const useDaisy = await hasDaisyUI();
     const headerVariant = useDaisy ? "Header_daisyui.tsx" : "Header.tsx";
 
     let headerContent = sanitizeImports(
@@ -376,6 +391,17 @@ ${
   // 5. Patch _app.tsx
   if (preset !== "none") {
     await patchAppTsx();
+  }
+
+  if (shouldResetLock) {
+    console.log("Resetting lock file...");
+    try {
+      await Deno.remove("deno.lock");
+    } catch (e) {
+      if (!(e instanceof Deno.errors.NotFound)) throw e;
+    }
+    const command = new Deno.Command("deno", { args: ["install"] });
+    await command.output();
   }
 
   console.log("\nSetup complete!");

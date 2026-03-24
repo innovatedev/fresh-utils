@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.9
+
+- **Init**: Consolidated all prompts to the beginning of the process.
+- **Init**: Added "Run with defaults? (Kvdex Production, Argon2, Prefix: none)" shortcut.
+- **Init**: Added "Reset lock file?" option to resolve Preact dependency issues (runs `rm deno.lock && deno install`).
+- **Init**: All prompts now default to "Yes".
+
 ## 0.4.8
 
 - **Exports**: Renamed `guestOnly` and `authOnly` to `guestOnlyMiddleware` and
