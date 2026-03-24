@@ -344,12 +344,16 @@ ${
       registerLogic = `await ctx.state.login(username);`;
     }
 
-    loginContent = loginContent
-      .replace("// {{AUTH_IMPORTS}}", authImports)
-      .replace("// {{AUTH_LOGIC}}", loginLogic);
-    registerContent = registerContent
-      .replace("// {{AUTH_IMPORTS}}", authImports)
-      .replace("// {{AUTH_LOGIC}}", registerLogic);
+    loginContent = sanitizeImports(
+      loginContent
+        .replace("// {{AUTH_IMPORTS}}", authImports)
+        .replace("// {{AUTH_LOGIC}}", loginLogic),
+    );
+    registerContent = sanitizeImports(
+      registerContent
+        .replace("// {{AUTH_IMPORTS}}", authImports)
+        .replace("// {{AUTH_LOGIC}}", registerLogic),
+    );
 
     if (authPrefix) {
       loginContent = loginContent

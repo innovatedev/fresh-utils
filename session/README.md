@@ -32,17 +32,23 @@ The easiest way to get started is using the initialization tool:
 deno run -A jsr:@innovatedev/fresh-session/init
 ```
 
-> **Note**: Running with `-y` defaults to the **Kvdex Production** preset
-> (Structured KV + Argon2).
+> **Note**: Running with defaults (e.g. via `-y` or confirming the initial
+> prompt) uses the **Kvdex Production** preset (Structured KV + Argon2, no
+> prefix).
 
 This will:
 
-1. Ask you to choose a preset (Memory, KV, or Kvdex).
-2. Add dependencies to your `deno.json`.
-3. Create `config/session.ts` (and `kv/db.ts` + `kv/models.ts` for Kvdex).
-4. Update your `utils.ts` State interface to extend session State.
-5. Patch your `main.ts` with the session import and middleware.
-6. Create login/logout/register routes (if a preset with routes is selected).
+1. Consolidated prompts: All configuration questions are asked up-front.
+2. Preset selection: Memory, KV, or Kvdex.
+3. Add dependencies: Automatically injected into `deno.json`.
+4. Create config: `config/session.ts` (and `kv/db.ts` + `kv/models.ts` for
+   Kvdex).
+5. Update State: `utils.ts` State interface is patched to extend session State.
+6. Patch Main: `main.ts` is patched with the session middleware.
+7. Routes: Generated routes (`login`, `register`, `logout`) use static imports
+   for better performance and DX.
+8. Dependency Fixes: Automatically resets `deno.lock` and runs `deno install` to
+   resolve Preact version conflicts.
 
 ## Manual Usage
 

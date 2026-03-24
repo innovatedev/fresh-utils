@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.12
+
+- **Init**: Fixed `kv/` import resolution in authentication templates.
+
 ## 0.4.11
 
 - **Init**: Refactored `argon2` imports to be injected via `AUTH_IMPORTS`

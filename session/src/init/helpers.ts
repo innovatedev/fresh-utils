@@ -74,6 +74,10 @@ export function sanitizeImports(content: string): string {
       'from "@/components/Button.tsx"',
     )
     .replace(
+      /from "(\.\.\/)+kv\/([^"]+)"/g,
+      'from "@/kv/$2"',
+    )
+    .replace(
       /import\("(\.\.\/)+kv\/([^"]+)"\)/g,
       'import("@/kv/$2")',
     )

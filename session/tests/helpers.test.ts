@@ -89,6 +89,15 @@ import { KvStore } from "@innovatedev/fresh-session/kv-store";
     },
   );
 
+  await t.step(
+    "should rewrite static relative kv/ imports to @/kv/ alias",
+    () => {
+      const input = 'import { db } from "../kv/db.ts";';
+      const expected = 'import { db } from "@/kv/db.ts";';
+      expect(sanitizeImports(input)).toBe(expected);
+    },
+  );
+
   await t.step("should trim leading whitespace", () => {
     const input = '   \n\nimport { h } from "preact";';
     const expected = 'import { h } from "preact";';
