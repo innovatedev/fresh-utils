@@ -176,8 +176,29 @@ export async function initAction(
       );
     }
     await writeFile(
-      `routes${authPrefix}/logout.ts`,
+      `routes${authPrefix}/(auth)/logout.ts`,
       logoutContent,
+      options.yes,
+    );
+
+    // Guest Middleware
+    let guestMiddleware = await readTemplate("routes/_middleware_guest.ts");
+    guestMiddleware = guestMiddleware.replace("{{REDIRECT}}", "/");
+    await writeFile(
+      `routes${authPrefix}/(guest)/_middleware.ts`,
+      guestMiddleware,
+      options.yes,
+    );
+
+    // Auth Middleware
+    let authMiddleware = await readTemplate("routes/_middleware_auth.ts");
+    authMiddleware = authMiddleware.replace(
+      "{{REDIRECT}}",
+      `${authPrefix || ""}/login`,
+    );
+    await writeFile(
+      `routes${authPrefix}/(auth)/_middleware.ts`,
+      authMiddleware,
       options.yes,
     );
 
@@ -202,7 +223,7 @@ export async function initAction(
 
       if (!user) {
         ctx.state.flash("error", "Invalid username or password");
-        return ctx.redirect("/login");
+        return ctx.redirect("${authPrefix || ""}/login");
       }
 ${
           isProd
@@ -210,7 +231,7 @@ ${
       const isValid = await verify(user.passwordHash, password);
       if (!isValid) {
         ctx.state.flash("error", "Invalid username or password");
-        return ctx.redirect("/login");
+        return ctx.redirect("${authPrefix || ""}/login");
       }
 `
             : ""
@@ -225,7 +246,7 @@ ${
     const existing = await db.users.findByPrimaryIndex("username", username);
     if (existing) {
       ctx.state.flash("error", "User already exists");
-      return ctx.redirect("/register");
+      return ctx.redirect("${authPrefix || ""}/register");
     }
 
 ${
@@ -235,7 +256,7 @@ ${
     const result = await db.users.add({ username, passwordHash });
     if (!result.ok) {
       ctx.state.flash("error", "Failed to create user");
-      return ctx.redirect("/register");
+      return ctx.redirect("${authPrefix || ""}/register");
     }
     await ctx.state.login(result.id);
 `
@@ -243,7 +264,7 @@ ${
     const result = await db.users.add({ username });
     if (!result.ok) {
       ctx.state.flash("error", "Failed to create user");
-      return ctx.redirect("/register");
+      return ctx.redirect("${authPrefix || ""}/register");
     }
     await ctx.state.login(result.id);
 `
@@ -259,7 +280,7 @@ ${
 
       if (!user) {
         ctx.state.flash("error", "Invalid username or password");
-        return ctx.redirect("/login");
+        return ctx.redirect("${authPrefix || ""}/login");
       }
 
 ${
@@ -268,7 +289,7 @@ ${
       const isValid = await verify(user.passwordHash, password);
       if (!isValid) {
         ctx.state.flash("error", "Invalid username or password");
-        return ctx.redirect("/login");
+        return ctx.redirect("${authPrefix || ""}/login");
       }
 `
             : ""
@@ -280,7 +301,7 @@ ${
     const existing = await kv.get(["users", username]);
     if (existing.value) {
       ctx.state.flash("error", "User already exists");
-      return ctx.redirect("/register");
+      return ctx.redirect("${authPrefix || ""}/register");
     }
 
 ${
@@ -315,9 +336,13 @@ ${
         .replace(/"\/login"/g, `"${authPrefix}/login"`);
     }
 
-    await writeFile(`routes${authPrefix}/login.tsx`, loginContent, options.yes);
     await writeFile(
-      `routes${authPrefix}/register.tsx`,
+      `routes${authPrefix}/(guest)/login.tsx`,
+      loginContent,
+      options.yes,
+    );
+    await writeFile(
+      `routes${authPrefix}/(guest)/register.tsx`,
       registerContent,
       options.yes,
     );

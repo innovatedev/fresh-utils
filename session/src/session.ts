@@ -451,3 +451,37 @@ export function createSessionMiddleware<
     return response;
   };
 }
+
+/**
+ * Middleware that allows only guest users (not logged in).
+ * If the user is logged in, they are redirected to the specified path.
+ *
+ * @param redirect The path to redirect to if the user is logged in. Defaults to "/".
+ */
+export function guestOnly(
+  redirect = "/",
+): (ctx: Context<Record<string, unknown>>) => Promise<Response> {
+  return async (ctx: Context<Record<string, unknown>>) => {
+    if (ctx.state.user) {
+      return ctx.redirect(redirect);
+    }
+    return await ctx.next();
+  };
+}
+
+/**
+ * Middleware that allows only authenticated users.
+ * If the user is not logged in, they are redirected to the specified path.
+ *
+ * @param redirect The path to redirect to if the user is not logged in. Defaults to "/login".
+ */
+export function authOnly(
+  redirect = "/login",
+): (ctx: Context<Record<string, unknown>>) => Promise<Response> {
+  return async (ctx: Context<Record<string, unknown>>) => {
+    if (!ctx.state.user) {
+      return ctx.redirect(redirect);
+    }
+    return await ctx.next();
+  };
+}

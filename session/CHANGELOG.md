@@ -1,9 +1,16 @@
 # Changelog
 
+## 0.4.7
+
+- **Exports**: Added `guestOnly` and `authOnly` middleware helpers.
+- **Init**: Authentication routes (`login`, `register`, `logout`) are now
+  generated within `(guest)/` and `(auth)/` route groups with automatic
+  middleware-based redirection.
+
 ## 0.4.6
 
-- **Init**: Fixed props for define on _app.tsx
-- **Init**: Fixed signals version to match fresh@2.2.0
+- **Init**: Fixed props for define on `_app.tsx`.
+- **Init**: Fixed signals version to match `fresh@2.2.0`.
 
 ## 0.4.5
 
