@@ -458,11 +458,13 @@ export function createSessionMiddleware<
  *
  * @param redirect The path to redirect to if the user is logged in. Defaults to "/".
  */
-export function guestOnly(
+export function guestOnlyMiddleware<
+  T extends Record<string, unknown> = Record<string, unknown>,
+>(
   redirect = "/",
-): (ctx: Context<Record<string, unknown>>) => Promise<Response> {
-  return async (ctx: Context<Record<string, unknown>>) => {
-    if (ctx.state.user) {
+): (ctx: Context<T>) => Promise<Response> {
+  return async (ctx: Context<T>) => {
+    if ((ctx.state as { user?: unknown }).user) {
       return ctx.redirect(redirect);
     }
     return await ctx.next();
@@ -475,11 +477,13 @@ export function guestOnly(
  *
  * @param redirect The path to redirect to if the user is not logged in. Defaults to "/login".
  */
-export function authOnly(
+export function authOnlyMiddleware<
+  T extends Record<string, unknown> = Record<string, unknown>,
+>(
   redirect = "/login",
-): (ctx: Context<Record<string, unknown>>) => Promise<Response> {
-  return async (ctx: Context<Record<string, unknown>>) => {
-    if (!ctx.state.user) {
+): (ctx: Context<T>) => Promise<Response> {
+  return async (ctx: Context<T>) => {
+    if (!(ctx.state as { user?: unknown }).user) {
       return ctx.redirect(redirect);
     }
     return await ctx.next();

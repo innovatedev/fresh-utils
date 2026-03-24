@@ -182,7 +182,9 @@ export async function initAction(
     );
 
     // Guest Middleware
-    let guestMiddleware = await readTemplate("routes/_middleware_guest.ts");
+    let guestMiddleware = sanitizeImports(
+      await readTemplate("routes/_middleware_guest.ts"),
+    );
     guestMiddleware = guestMiddleware.replace("{{REDIRECT}}", "/");
     await writeFile(
       `routes${authPrefix}/(guest)/_middleware.ts`,
@@ -191,7 +193,9 @@ export async function initAction(
     );
 
     // Auth Middleware
-    let authMiddleware = await readTemplate("routes/_middleware_auth.ts");
+    let authMiddleware = sanitizeImports(
+      await readTemplate("routes/_middleware_auth.ts"),
+    );
     authMiddleware = authMiddleware.replace(
       "{{REDIRECT}}",
       `${authPrefix || ""}/login`,

@@ -1,5 +1,6 @@
-import { authOnly } from "@innovatedev/fresh-session";
+import { define } from "../utils.ts";
+import { authOnlyMiddleware } from "@innovatedev/fresh-session";
 
-export const handler = [
-  authOnly("{{REDIRECT}}"),
-];
+export const handler = define.middleware([
+  authOnlyMiddleware("{{REDIRECT}}"),
+]);

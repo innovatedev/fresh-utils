@@ -132,7 +132,7 @@ export async function patchMainTs(isKv = false) {
       patched = true;
     }
 
-    const importStmt = 'import { session } from "./config/session.ts";';
+    const importStmt = 'import { session } from "@/config/session.ts";';
     const middlewareUsage = "app.use(session)";
 
     // 1. Check/Add Import

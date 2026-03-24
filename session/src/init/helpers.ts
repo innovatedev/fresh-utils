@@ -37,39 +37,37 @@ export function sanitizeImports(content: string): string {
     .replace(/\/\*\* @jsx.*?\*\//g, "")
     // Handle JSR-rewritten relative path imports
     .replace(
-      /from "(\.\.\/)+mod\.ts";/g,
-      'from "@innovatedev/fresh-session";',
+      /from "(\.\.\/)+mod\.ts"/g,
+      'from "@innovatedev/fresh-session"',
     )
     .replace(
-      /from "(\.\.\/)+stores\/kv\.ts";/g,
-      'from "@innovatedev/fresh-session/kv-store";',
+      /from "(\.\.\/)+stores\/kv\.ts"/g,
+      'from "@innovatedev/fresh-session/kv-store"',
     )
     .replace(
-      /from "(\.\.\/)+stores\/memory\.ts";/g,
-      'from "@innovatedev/fresh-session/memory-store";',
+      /from "(\.\.\/)+stores\/memory\.ts"/g,
+      'from "@innovatedev/fresh-session/memory-store"',
     )
     .replace(
-      /from "(\.\.\/)+stores\/kvdex\.ts";/g,
-      'from "@innovatedev/fresh-session/kvdex-store";',
+      /from "(\.\.\/)+stores\/kvdex\.ts"/g,
+      'from "@innovatedev/fresh-session/kvdex-store"',
     )
     // Handle JSR-rewritten versioned specifiers
-    // e.g. "jsr:@innovatedev/fresh-session@^0.3.7/kvdex-store" → "@innovatedev/fresh-session/kvdex-store"
     .replace(
-      /from "jsr:@innovatedev\/fresh-session@[^"\/]+(?:\/([^"]+))?";/g,
+      /from "jsr:@innovatedev\/fresh-session@[^"\/]+(?:\/([^"]+))?"/g,
       (_, subpath) =>
         subpath
-          ? `from "@innovatedev/fresh-session/${subpath}";`
-          : `from "@innovatedev/fresh-session";`,
+          ? `from "@innovatedev/fresh-session/${subpath}"`
+          : `from "@innovatedev/fresh-session"`,
     )
     // Handle JSR-rewritten dependency specifiers
-    // e.g. "jsr:@olli/kvdex@^3.4.2" → "@olli/kvdex"
     .replace(
-      /from "(jsr|npm):(@?[^@\/"]+(?:\/[^@\/"]+)?)@[^"]+";/g,
-      'from "$2";',
+      /from "(jsr|npm):(@?[^@\/"]+(?:\/[^@\/"]+)?)@[^"]+"/g,
+      'from "$2"',
     )
     .replace(
-      /from "(\.\.\/)+utils\.ts";/g,
-      'from "@/utils.ts";',
+      /from "(\.\.\/)+utils\.ts"/g,
+      'from "@/utils.ts"',
     )
     .trimStart();
 }

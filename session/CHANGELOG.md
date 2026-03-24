@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.8
+
+- **Exports**: Renamed `guestOnly` and `authOnly` to `guestOnlyMiddleware` and
+  `authOnlyMiddleware`.
+- **Init**: Fixed relative import resolution for nested route groups and ensured
+  consistent use of `@/` alias.
+
 ## 0.4.7
 
 - **Exports**: Added `guestOnly` and `authOnly` middleware helpers.
