@@ -62,6 +62,20 @@ Deno.test("Registration Templates - Replacement Logic", async (t) => {
       expect(finalCode).not.toContain("verify");
     });
   }
+
+  await t.step(
+    "simulating combined validation (username && email)",
+    async () => {
+      const content = await readTemplate("register_prod.tsx");
+      const combinedValidation = "username && email";
+      const finalCode = content.replace(
+        /\/\* {{REGISTER_VALIDATION}} \*\/ true/m,
+        combinedValidation,
+      );
+      // Should be correctly parenthesized as !(username && email)
+      expect(finalCode).toContain(`!(${combinedValidation})`);
+    },
+  );
 });
 
 Deno.test("Login Templates - Structure", async (t) => {
@@ -79,4 +93,6 @@ Deno.test("Logout Template - Structure", async () => {
   const content = await readTemplate("logout.ts");
   expect(content).toContain("await ctx.state.logout()");
   expect(content).not.toContain("{{AUTH_LOGIC}}");
+  expect(content).toContain("defineAuth.handlers");
+  expect(content).not.toContain("define.handlers");
 });

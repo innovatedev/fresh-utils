@@ -24,9 +24,7 @@ if (import.meta.main) {
     .name("session-init")
     .version(denoConfig.version)
     .description("Initialize session middleware for Fresh")
-    .option("-s, --store <store:string>", "Store type (memory, kv)", {
-      default: "kv",
-    })
+    .option("-s, --store <store:string>", "Store type (memory, kv, kvdex)")
     .option(
       "-p, --preset <preset:string>",
       "Preset (none, basic, kv-basic, kv-prod, kvdex-basic, kvdex-prod)",

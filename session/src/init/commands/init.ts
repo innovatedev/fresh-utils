@@ -1,8 +1,10 @@
 import { Confirm, Input, Select } from "../deps.ts";
 import {
   checkFreshVersion,
+  dedent,
   ensureUnstableKv,
   hasDaisyUI,
+  replaceWithIndent,
   sanitizeImports,
   updateDenoJson,
   writeFile,
@@ -19,46 +21,6 @@ async function readTemplate(path: string): Promise<string> {
     );
   }
   return await res.text();
-}
-
-/**
- * Dedents a multiline string by finding the minimum common indentation
- */
-function dedent(str: string): string {
-  const lines = str.split("\n");
-  // Find first non-empty line to determine base indentation
-  const firstLine = lines.find((l) => l.trim().length > 0);
-  if (!firstLine) return str.trim();
-
-  const match = firstLine.match(/^(\s*)/);
-  const indent = match ? match[1] : "";
-
-  return lines
-    .map((line) => line.startsWith(indent) ? line.slice(indent.length) : line)
-    .join("\n")
-    .trim();
-}
-
-/**
- * Replaces a placeholder in a string, preserving the indentation of the line where it was found
- */
-function replaceWithIndent(
-  content: string,
-  placeholder: string,
-  replacement: string,
-): string {
-  const escaped = placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const regex = new RegExp(`^(\\s*)${escaped}`, "m");
-  const match = content.match(regex);
-  if (!match) return content;
-
-  const indent = match[1];
-  const indentedReplacement = replacement
-    .split("\n")
-    .map((line) => line.trim().length > 0 ? indent + line : "")
-    .join("\n");
-
-  return content.replace(regex, indentedReplacement);
 }
 
 /**
@@ -110,15 +72,13 @@ export async function initAction(
   }
 
   // Set default preset if not defined by flag or "defaults" prompt
-  if (!preset) {
+  if (!preset && (options.yes || hasFlags)) {
     const store = options.store || "kvdex";
     if (store === "kvdex") preset = "kvdex-prod";
     else if (store === "kv") preset = "kv-prod";
     else preset = "basic";
 
-    if (options.yes || hasFlags) {
-      console.log(`Using preset '${preset}' (store: ${store})`);
-    }
+    console.log(`Using preset '${preset}' (store: ${store})`);
   }
 
   // Non-interactive or auto-defaults also set these

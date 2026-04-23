@@ -1,6 +1,6 @@
-import { define } from "../utils.ts";
+import { defineAuth } from "../utils.ts";
 
-export const handler = define.handlers({
+export const handler = defineAuth.handlers({
   async POST(ctx) {
     // Destroy session
     await ctx.state.logout();

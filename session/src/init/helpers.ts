@@ -5,6 +5,46 @@ export function getCWD() {
   return Deno.cwd();
 }
 
+/**
+ * Dedents a multiline string by finding the minimum common indentation
+ */
+export function dedent(str: string): string {
+  const lines = str.split("\n");
+  // Find first non-empty line to determine base indentation
+  const firstLine = lines.find((l) => l.trim().length > 0);
+  if (!firstLine) return str.trim();
+
+  const match = firstLine.match(/^(\s*)/);
+  const indent = match ? match[1] : "";
+
+  return lines
+    .map((line) => line.startsWith(indent) ? line.slice(indent.length) : line)
+    .join("\n")
+    .trim();
+}
+
+/**
+ * Replaces a placeholder in a string, preserving the indentation of the line where it was found
+ */
+export function replaceWithIndent(
+  content: string,
+  placeholder: string,
+  replacement: string,
+): string {
+  const escaped = placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`^(\\s*)${escaped}`, "m");
+  const match = content.match(regex);
+  if (!match) return content;
+
+  const indent = match[1];
+  const indentedReplacement = replacement
+    .split("\n")
+    .map((line) => (line.trim().length > 0 ? indent + line : ""))
+    .join("\n");
+
+  return content.replace(regex, indentedReplacement);
+}
+
 export async function checkFreshVersion() {
   const djPath = join(getCWD(), "deno.json");
   let isFreshProject = false;

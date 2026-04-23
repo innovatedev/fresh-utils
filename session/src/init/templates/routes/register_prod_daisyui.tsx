@@ -7,9 +7,17 @@ export const handler = define.handlers({
     const form = await ctx.req.formData();
     // {{REGISTER_EXTRACTION}}
     const password = form.get("password")?.toString();
+    const passwordConfirm = form.get("passwordConfirm")?.toString();
 
-    if (!(/* {{REGISTER_VALIDATION}} */ true) || !password) {
+    if (
+      !(/* {{REGISTER_VALIDATION}} */ true) || !password || !passwordConfirm
+    ) {
       ctx.state.flash("error", "Missing required fields");
+      return ctx.redirect("/register");
+    }
+
+    if (password !== passwordConfirm) {
+      ctx.state.flash("error", "Passwords do not match");
       return ctx.redirect("/register");
     }
 
@@ -60,6 +68,19 @@ export default define.page<typeof handler>((ctx) => {
               <input
                 type="password"
                 name="password"
+                placeholder="••••••••"
+                class="input input-bordered w-full focus:input-primary transition-all"
+                required
+              />
+            </div>
+
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text font-semibold">Confirm Password</span>
+              </label>
+              <input
+                type="password"
+                name="passwordConfirm"
                 placeholder="••••••••"
                 class="input input-bordered w-full focus:input-primary transition-all"
                 required

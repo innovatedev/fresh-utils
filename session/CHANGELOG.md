@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.19
+
+- **Type Safety**: Introduced `AuthState` and `defineAuth` for strictly typed
+  handlers in authenticated routes.
+- **Security**: Added a password confirmation field and matching validation to
+  all production registration templates.
+- **Init Refinement**: Fixed the default store to `kvdex` across all entry
+  points and updated the CLI description.
+- **Init Refinement**: Fixed a logic bug where the "Run with defaults?" prompt
+  was being skipped, and ensured manual configuration works correctly when
+  answering "No".
+- **Init Refinement**: Optimized `utils.ts` patching to intelligently handle
+  `User` imports vs local definitions and fixed logic precedence in validation
+  templates.
+- **Refactoring**: Moved common initialization utilities to `helpers.ts` and
+  added comprehensive patcher tests.
+
 ## 0.4.18
 
 - **Init**: Fixed registration validation being stripped and improved logic

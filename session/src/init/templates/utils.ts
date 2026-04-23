@@ -6,3 +6,7 @@ import type { State } from "../../session.ts";
 
 export type { State };
 export const define = createDefine<State>();
+
+export type User = { username: string; email: string };
+export type AuthState = State & { user: User; userId: string };
+export const defineAuth = createDefine<AuthState>();

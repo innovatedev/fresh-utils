@@ -61,51 +61,61 @@ import {
   type SessionOptions,
 } from "@innovatedev/fresh-session";
 import { DenoKvSessionStorage } from "@innovatedev/fresh-session/kv-store";
-// Assuming you have a State interface defined
 import type { State } from "../utils.ts";
 
 export const sessionConfig: SessionOptions = {
-  // Automatically opens KV and defaults to "session" prefix
-  store: new DenoKvSessionStorage({
-    expireAfter: 60 * 60 * 24 * 7, // 1 week
-    // Enable optional built-in user resolution:
-    // userKeyPrefix: ["users"],
-  }),
-  cookie: {
-    name: "sessionId",
-    sameSite: "Lax",
-    secure: true,
-  },
-  // Security options:
-  trackUserAgent: true, // Validate UA on every request
-  trackIp: true, // Track IP (uses remoteAddr)
-  // trackIp: { header: "X-Forwarded-For" }, // Trust proxy header
+  store: new DenoKvSessionStorage(), // Defaults to Deno.openKv()
+  cookie: { name: "sessionId", sameSite: "Lax", secure: true },
+  trackUserAgent: true,
+  trackIp: true,
 };
 
-// Generics provide type safety for your AppState
 export const session = createSessionMiddleware<State>(sessionConfig);
 ```
 
-### 2. Using Kvdex (Recommended)
+### 2. Update `utils.ts` (Type Safety)
 
-`kvdex` offers a structured, typed schema on top of Deno KV. The CLI init tool
-sets this up automatically, creating a `kv/` folder with separate files:
+To get full type safety in your handlers, extend the session `State` and export
+`defineAuth`:
 
-Run:
+```typescript
+// utils.ts
+import { createDefine } from "fresh";
+import type { State as SessionState } from "@innovatedev/fresh-session";
 
-```bash
-deno add jsr:@olli/kvdex
+export interface User {
+  username: string;
+  email: string;
+}
+
+export interface State extends SessionState<User> {
+  shared: string; // Your existing state
+}
+
+// Strictly typed state for authenticated routes (user is non-optional)
+export type AuthState = State & { user: User; userId: string };
+
+export const define = createDefine<State>();
+export const defineAuth = createDefine<AuthState>();
 ```
+
+### 3. Using Kvdex (Recommended)
+
+`kvdex` offers a structured, typed schema with primary indices for efficient
+user resolution.
 
 ```typescript
 // kv/models.ts
 import { type KvValue, model } from "@olli/kvdex";
 import type { SessionDoc } from "@innovatedev/fresh-session/kvdex-store";
 
-export type SessionData = KvValue;
-export type User = { username: string } & KvValue;
+export type User = {
+  username: string;
+  email: string;
+  passwordHash: string;
+} & KvValue;
 
-export const SessionModel = model<SessionDoc<SessionData>>();
+export const SessionModel = model<SessionDoc<KvValue>>();
 export const UserModel = model<User>();
 ```
 
@@ -116,15 +126,18 @@ import { SessionModel, UserModel } from "./models.ts";
 
 const kv = await Deno.openKv();
 
-const db = kvdex({
+export const db = kvdex({
   kv,
   schema: {
     sessions: collection(SessionModel),
-    users: collection(UserModel),
+    users: collection(UserModel, {
+      indices: {
+        username: "primary", // Enable lookup by username
+        email: "primary", // Enable lookup by email
+      },
+    }),
   },
 });
-
-export { db, kv };
 ```
 
 ```typescript
@@ -136,8 +149,7 @@ import { db } from "../kv/db.ts";
 export const session = createSessionMiddleware({
   store: new KvDexSessionStorage({
     collection: db.sessions,
-    userCollection: db.users,
-    expireAfter: 60 * 60 * 24 * 7, // 1 week
+    userCollection: db.users, // Enables ctx.state.user resolution
   }),
 });
 ```
@@ -152,21 +164,26 @@ app.use(session);
 // ...
 ```
 
-### 4. Use in Handlers/Pages
+### 5. Use in Handlers/Pages
+
+Use `define` for public pages and `defineAuth` for routes where the user must be
+logged in. Return `page()` to render the component from a handler:
 
 ```typescript
-export const handler = define.handlers({
+import { page } from "fresh";
+import { defineAuth } from "../utils.ts";
+
+// For authenticated routes (ctx.state.user is non-optional)
+export const handler = defineAuth.handlers({
   async GET(ctx) {
     // Session data (key-value object)
     ctx.state.session["foo"] = "bar";
 
-    // Flash messages (one-time messages)
-    ctx.state.flash("success", "Operation successful!");
+    // User is guaranteed to exist here
+    const user = ctx.state.user;
+    const userId = ctx.state.userId;
 
-    // User login (sets session user ID and rotates session)
-    await ctx.state.login("user_123");
-
-    return ctx.render();
+    return page();
   },
 });
 ```

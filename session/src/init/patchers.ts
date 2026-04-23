@@ -5,9 +5,13 @@ export function printStateExample(isKvdex = false) {
   const userImport = isKvdex
     ? '\n  import type { User } from "./kv/models.ts";'
     : "";
+  const userDefinition = isKvdex
+    ? ""
+    : "\n  export interface User { username: string; email: string; }";
   const stateExtends = isKvdex ? "SessionState<User>" : "SessionState";
+
   console.log(
-    `\nPlease update your State interface in utils.ts to extend the session State:\n\n  import type { State as SessionState } from "@innovatedev/fresh-session";${userImport}\n\n  export interface State extends ${stateExtends} {\n    // your existing properties...\n  }\n`,
+    `\nPlease update your State interface in utils.ts to extend the session State:\n\n  import type { State as SessionState } from "@innovatedev/fresh-session";${userImport}\n${userDefinition}\n  export interface State extends ${stateExtends} {\n    // your existing properties...\n  }\n\n  export type AuthState = State & { user: User; userId: string };\n  export const defineAuth = createDefine<AuthState>();\n`,
   );
 }
 
@@ -41,8 +45,8 @@ export async function patchUtilsState(
         : 'import type { State as SessionState } from "@innovatedev/fresh-session";';
 
       const stateInterface = isKvdex
-        ? `export interface State extends SessionState<User> {\n  shared: string;\n}`
-        : `export interface State extends SessionState {\n  shared: string;\n}`;
+        ? `export interface State extends SessionState<User> {\n  shared: string;\n}\n\nexport type AuthState = State & { user: User; userId: string };\nexport const defineAuth = createDefine<AuthState>();`
+        : `export interface State extends SessionState {\n  shared: string;\n}\n\n// Replace 'unknown' with your User type for full type safety\nexport type AuthState = State & { user: unknown; userId: string };\nexport const defineAuth = createDefine<AuthState>();`;
 
       const updated = content
         .replace(
