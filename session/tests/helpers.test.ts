@@ -104,6 +104,12 @@ import { KvStore } from "@innovatedev/fresh-session/kv-store";
     expect(sanitizeImports(input)).toBe(expected);
   });
 
+  await t.step("should preserve REGISTER_VALIDATION placeholder", () => {
+    const input = "if (!/* {{REGISTER_VALIDATION}} */ true) {";
+    // It should NOT remove the comment
+    expect(sanitizeImports(input)).toBe(input.trimStart());
+  });
+
   await t.step("should handle complex combined input", () => {
     const _input = `
 /** @jsx h */

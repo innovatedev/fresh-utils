@@ -8,7 +8,7 @@ export const handler = define.handlers({
     // {{REGISTER_EXTRACTION}}
     const password = form.get("password")?.toString();
 
-    if (!/* {{REGISTER_VALIDATION}} */ true || !password) {
+    if (!(/* {{REGISTER_VALIDATION}} */ true) || !password) {
       ctx.state.flash("error", "Missing required fields");
       return ctx.redirect("/register");
     }

@@ -81,7 +81,6 @@ export function sanitizeImports(content: string): string {
       /import\("(\.\.\/)+kv\/([^"]+)"\)/g,
       'import("@/kv/$2")',
     )
-    .replace(/\/\* {{REGISTER_VALIDATION}} \*\/ true/m, "true") // Ensure it doesn't leave comments
     .replace(/^\s*\/\/ deno-lint-ignore.*?\n/gm, "")
     .replace(/\/\* deno-lint-ignore.*?\*\//g, "")
     .trimStart();

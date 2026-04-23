@@ -91,7 +91,10 @@ export async function initAction(
   let enableEmail = true;
   let loginField: "username" | "email" = "email";
 
-  if (!options.yes) {
+  // 1. Handle defaults and flags
+  const hasFlags = !!(options.store || options.preset);
+
+  if (!options.yes && !hasFlags) {
     const useDefaults = await Confirm.prompt({
       message: "Run with defaults? (Kvdex Production, Argon2, Prefix: none)",
       default: true,
@@ -99,6 +102,28 @@ export async function initAction(
 
     if (useDefaults) {
       preset = "kvdex-prod";
+      shouldResetLock = true;
+      shouldAddUnstableKv = true;
+    } else {
+      // Manual configuration continues below
+    }
+  }
+
+  // Set default preset if not defined by flag or "defaults" prompt
+  if (!preset) {
+    const store = options.store || "kvdex";
+    if (store === "kvdex") preset = "kvdex-prod";
+    else if (store === "kv") preset = "kv-prod";
+    else preset = "basic";
+
+    if (options.yes || hasFlags) {
+      console.log(`Using preset '${preset}' (store: ${store})`);
+    }
+  }
+
+  // Non-interactive or auto-defaults also set these
+  if (options.yes || (preset && !options.yes)) {
+    if (options.yes || !hasFlags) { // If it's pure --yes or they hit ENTER on defaults
       shouldUpdateUtils = true;
       authPrefix = "";
       shouldResetLock = true;
@@ -106,112 +131,105 @@ export async function initAction(
       enableUsername = true;
       enableEmail = true;
       loginField = "email";
-    } else {
-      if (!preset) {
-        const selectedPreset = await Select.prompt({
-          message: "Select an initialization preset:",
-          options: [
-            { name: "None (Config only, no routes)", value: "none" },
-            {
-              name: "Basic (Memory Store, Simple Auth Templates)",
-              value: "basic",
-            },
-            {
-              name: "KV Basic (Deno KV, Simple Auth Templates)",
-              value: "kv-basic",
-            },
-            {
-              name: "KV Production (Deno KV, Argon2 + Auth Templates)",
-              value: "kv-prod",
-            },
-            {
-              name: "Kvdex Basic (Structured KV, Simple Auth Templates)",
-              value: "kvdex-basic",
-            },
-            {
-              name: "Kvdex Production (Structured KV, Argon2 + Auth Templates)",
-              value: "kvdex-prod",
-            },
-          ],
-          default: "kvdex-prod",
-        });
-        preset = selectedPreset as
-          | "none"
-          | "basic"
-          | "kv-basic"
-          | "kv-prod"
-          | "kvdex-basic"
-          | "kvdex-prod";
-      }
-
-      enableUsername = await Confirm.prompt({
-        message: "Enable username field?",
-        default: true,
-      });
-
-      enableEmail = await Confirm.prompt({
-        message: "Enable email field?",
-        default: true,
-      });
-
-      if (!enableUsername && !enableEmail) {
-        console.error(
-          "Error: You must enable at least one of username or email.",
-        );
-        Deno.exit(1);
-      }
-
-      if (enableUsername && enableEmail) {
-        loginField = await Select.prompt({
-          message: "Primary login field?",
-          options: [
-            { name: "Email", value: "email" },
-            { name: "Username", value: "username" },
-          ],
-          default: "email",
-        }) as "username" | "email";
-      } else {
-        loginField = enableEmail ? "email" : "username";
-      }
-
-      shouldUpdateUtils = await Confirm.prompt({
-        message: "Update utils.ts State interface automatically?",
-        default: true,
-      });
-
-      if (preset !== "none") {
-        authPrefix = await Input.prompt({
-          message: "Auth route prefix? (e.g. /auth, default: none)",
-          default: "",
-        });
-      }
-
-      shouldResetLock = await Confirm.prompt({
-        message: "Reset lock file? (Resolves Preact dependency issues)",
-        default: true,
-      });
-
-      if (preset!.startsWith("kv") || preset!.startsWith("kvdex")) {
-        shouldAddUnstableKv = await Confirm.prompt({
-          message:
-            "Add 'kv' to 'unstable' in deno.json? (Required for Deno KV)",
-          default: true,
-        });
-      }
     }
-  } else {
-    // Defaults for non-interactive
+  }
+
+  // 2. Interactive Manual Configuration (only if flags are NOT present and not --yes and not using defaults)
+  if (
+    !options.yes && !hasFlags && preset !== "kvdex-prod" &&
+    preset !== "kv-prod" && preset !== "basic"
+  ) {
+    // If we're here, it means they said NO to defaults and we need to prompt for everything
     if (!preset) {
-      const store = options.store || "kvdex";
-      if (store === "kvdex") preset = "kvdex-prod";
-      else if (store === "kv") preset = "kv-prod";
-      else preset = "basic";
-      console.log(`Using default preset '${preset}' (store: ${store})`);
+      const selectedPreset = await Select.prompt({
+        message: "Select an initialization preset:",
+        options: [
+          { name: "None (Config only, no routes)", value: "none" },
+          {
+            name: "Basic (Memory Store, Simple Auth Templates)",
+            value: "basic",
+          },
+          {
+            name: "KV Basic (Deno KV, Simple Auth Templates)",
+            value: "kv-basic",
+          },
+          {
+            name: "KV Production (Deno KV, Argon2 + Auth Templates)",
+            value: "kv-prod",
+          },
+          {
+            name: "Kvdex Basic (Structured KV, Simple Auth Templates)",
+            value: "kvdex-basic",
+          },
+          {
+            name: "Kvdex Production (Structured KV, Argon2 + Auth Templates)",
+            value: "kvdex-prod",
+          },
+        ],
+        default: "kvdex-prod",
+      });
+      preset = selectedPreset as
+        | "none"
+        | "basic"
+        | "kv-basic"
+        | "kv-prod"
+        | "kvdex-basic"
+        | "kvdex-prod";
     }
-    shouldUpdateUtils = true;
-    authPrefix = "";
-    shouldResetLock = true;
-    shouldAddUnstableKv = true;
+
+    enableUsername = await Confirm.prompt({
+      message: "Enable username field?",
+      default: true,
+    });
+
+    enableEmail = await Confirm.prompt({
+      message: "Enable email field?",
+      default: true,
+    });
+
+    if (!enableUsername && !enableEmail) {
+      console.error(
+        "Error: You must enable at least one of username or email.",
+      );
+      Deno.exit(1);
+    }
+
+    if (enableUsername && enableEmail) {
+      loginField = await Select.prompt({
+        message: "Primary login field?",
+        options: [
+          { name: "Email", value: "email" },
+          { name: "Username", value: "username" },
+        ],
+        default: "email",
+      }) as "username" | "email";
+    } else {
+      loginField = enableEmail ? "email" : "username";
+    }
+
+    shouldUpdateUtils = await Confirm.prompt({
+      message: "Update utils.ts State interface automatically?",
+      default: true,
+    });
+
+    if (preset !== "none") {
+      authPrefix = await Input.prompt({
+        message: "Auth route prefix? (e.g. /auth, default: none)",
+        default: "",
+      });
+    }
+
+    shouldResetLock = await Confirm.prompt({
+      message: "Reset lock file? (Resolves Preact dependency issues)",
+      default: true,
+    });
+
+    if (preset!.startsWith("kv") || preset!.startsWith("kvdex")) {
+      shouldAddUnstableKv = await Confirm.prompt({
+        message: "Add 'kv' to 'unstable' in deno.json? (Required for Deno KV)",
+        default: true,
+      });
+    }
   }
 
   if (authPrefix && !authPrefix.startsWith("/")) {
@@ -222,7 +240,7 @@ export async function initAction(
   }
 
   // Determine store type based on preset
-  const isKv = preset!.startsWith("kv"); // Matches kv-*, kvdex-*
+  const needsKv = preset!.startsWith("kv") || preset!.startsWith("kvdex");
   const isKvdex = preset!.startsWith("kvdex");
   const isProd = preset!.endsWith("prod");
 
@@ -299,13 +317,13 @@ export async function initAction(
   // Define templates based on store
   let configTemplate = "config/memory.ts";
   if (isKvdex) configTemplate = "config/kvdex.ts";
-  else if (isKv) configTemplate = "config/kv.ts";
+  else if (needsKv) configTemplate = "config/kv.ts";
 
   const configContent = sanitizeImports(await readTemplate(configTemplate));
 
   // 1. Deno JSON Dependency Injection
   await updateDenoJson(options.yes, isProd, isKvdex);
-  if (isKv) {
+  if (needsKv) {
     await ensureUnstableKv(options.yes, shouldAddUnstableKv);
   }
 
@@ -388,9 +406,17 @@ export async function initAction(
 
     if (isKvdex) {
       authImports = `import { db } from "../kv/db.ts";`;
-      if (isProd) {
-        authImports += `\nimport { verify, hash } from "@felix/argon2";`;
-      }
+    }
+
+    let loginImports = authImports;
+    let registerImports = authImports;
+
+    if (isProd) {
+      loginImports += `\nimport { verify } from "@felix/argon2";`;
+      registerImports += `\nimport { hash } from "@felix/argon2";`;
+    }
+
+    if (isKvdex) {
       loginLogic = dedent(`
         const userRes = await db.users.findByPrimaryIndex("${loginField}", login);
         const user = userRes?.value;
@@ -452,10 +478,7 @@ export async function initAction(
         `)
       }
       `);
-    } else if (isKv) {
-      if (isProd) {
-        authImports = `import { verify, hash } from "@felix/argon2";`;
-      }
+    } else if (needsKv) {
       loginLogic = dedent(`
         const kv = await Deno.openKv();
         const userRes = await kv.get(["users", login]);
@@ -526,7 +549,7 @@ export async function initAction(
     loginContent = replaceWithIndent(
       loginContent,
       "// {{AUTH_IMPORTS}}",
-      authImports,
+      loginImports,
     );
     loginContent = replaceWithIndent(
       loginContent,
@@ -546,7 +569,7 @@ export async function initAction(
     registerContent = replaceWithIndent(
       registerContent,
       "// {{AUTH_IMPORTS}}",
-      authImports,
+      registerImports,
     );
     registerContent = replaceWithIndent(
       registerContent,
@@ -623,7 +646,7 @@ export async function initAction(
   await patchUtilsState(shouldUpdateUtils, isKvdex);
 
   // 4. Patch Main
-  await patchMainTs(isKv);
+  await patchMainTs(needsKv);
 
   // 5. Patch _app.tsx
   if (preset !== "none") {
