@@ -215,32 +215,32 @@ export async function initAction(
     enableUsername
       ? (useDaisy
         ? dedent(`
-            <div class="form-control w-full">
-              <label class="label">
+            <label class="form-control w-full">
+              <div class="label">
                 <span class="label-text font-semibold">Username</span>
-              </label>
+              </div>
               <input type="text" name="username" placeholder="Username" class="input input-bordered w-full focus:input-primary transition-all" required />
-            </div>`)
+            </label>`)
         : dedent(`
-            <div class="space-y-1">
-              <label class="block text-sm font-medium text-gray-700">Username</label>
-              <input type="text" name="username" placeholder="Username" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required />
-            </div>`))
+            <label class="block space-y-1">
+              <span class="block text-sm font-semibold text-gray-700">Username</span>
+              <input type="text" name="username" placeholder="Username" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all" required />
+            </label>`))
       : "",
     enableEmail
       ? (useDaisy
         ? dedent(`
-            <div class="form-control w-full">
-              <label class="label">
+            <label class="form-control w-full">
+              <div class="label">
                 <span class="label-text font-semibold">Email</span>
-              </label>
+              </div>
               <input type="email" name="email" placeholder="email@example.com" class="input input-bordered w-full focus:input-primary transition-all" required />
-            </div>`)
+            </label>`)
         : dedent(`
-            <div class="space-y-1">
-              <label class="block text-sm font-medium text-gray-700">Email</label>
-              <input type="email" name="email" placeholder="email@example.com" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required />
-            </div>`))
+            <label class="block space-y-1">
+              <span class="block text-sm font-semibold text-gray-700">Email</span>
+              <input type="email" name="email" placeholder="email@example.com" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all" required />
+            </label>`))
       : "",
   ].filter(Boolean).join("\n");
 
@@ -252,17 +252,17 @@ export async function initAction(
 
   const loginFields = useDaisy
     ? dedent(`
-        <div class="form-control w-full">
-          <label class="label">
+        <label class="form-control w-full">
+          <div class="label">
             <span class="label-text font-semibold">${loginLabel}</span>
-          </label>
+          </div>
           <input type="${loginType}" name="login" placeholder="${loginPlaceholder}" class="input input-bordered w-full focus:input-primary transition-all" required />
-        </div>`)
+        </label>`)
     : dedent(`
-        <div class="space-y-1">
-          <label class="block text-sm font-medium text-gray-700">${loginLabel}</label>
-          <input type="${loginType}" name="login" placeholder="${loginPlaceholder}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required />
-        </div>`);
+        <label class="block space-y-1">
+          <span class="block text-sm font-semibold text-gray-700">${loginLabel}</span>
+          <input type="${loginType}" name="login" placeholder="${loginPlaceholder}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all" required />
+        </label>`);
 
   const registerExtraction = [
     enableUsername ? 'const username = form.get("username")?.toString();' : "",

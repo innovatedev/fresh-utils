@@ -53,10 +53,10 @@ export default define.page<typeof handler>((ctx) => {
           <form method="POST" class="space-y-6">
             {/* {{LOGIN_FIELDS}} */}
 
-            <div class="form-control w-full">
-              <label class="label">
+            <label class="form-control w-full">
+              <div class="label">
                 <span class="label-text font-semibold">Password</span>
-              </label>
+              </div>
               <input
                 type="password"
                 name="password"
@@ -64,7 +64,7 @@ export default define.page<typeof handler>((ctx) => {
                 class="input input-bordered w-full focus:input-primary transition-all"
                 required
               />
-            </div>
+            </label>
 
             <div>
               <Button

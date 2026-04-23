@@ -1,11 +1,17 @@
 # Changelog
 
+## 0.4.20
+
+- **UI/UX**: Synchronized vanilla Tailwind templates with DaisyUI patterns
+- **Accessibility**: Standardized form structures by wrapping inputs inside
+  labels across all templates and dynamic field generators.
+- **Security**: Added a password confirmation field and matching validation to
+  all production registration templates.
+
 ## 0.4.19
 
 - **Type Safety**: Introduced `AuthState` and `defineAuth` for strictly typed
   handlers in authenticated routes.
-- **Security**: Added a password confirmation field and matching validation to
-  all production registration templates.
 - **Init Refinement**: Fixed the default store to `kvdex` across all entry
   points and updated the CLI description.
 - **Init Refinement**: Fixed a logic bug where the "Run with defaults?" prompt
