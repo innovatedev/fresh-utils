@@ -271,10 +271,17 @@ export async function updateDenoJson(
       changed = true;
     }
 
-    if (includeKvdex && !config.imports["@olli/kvdex"]) {
-      const v = getDependencyVersion("@olli/kvdex", "^3.4.2");
-      config.imports["@olli/kvdex"] = `jsr:@olli/kvdex@${v}`;
-      changed = true;
+    if (includeKvdex) {
+      if (!config.imports["@olli/kvdex"]) {
+        const v = getDependencyVersion("@olli/kvdex", "^3.6.5");
+        config.imports["@olli/kvdex"] = `jsr:@olli/kvdex@${v}`;
+        changed = true;
+      }
+      if (!config.imports["zod"]) {
+        console.log("Adding zod dependency for schema validation...");
+        config.imports["zod"] = "npm:zod@^3.24.0";
+        changed = true;
+      }
     }
 
     if (changed) {

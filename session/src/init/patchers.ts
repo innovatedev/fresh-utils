@@ -1,5 +1,5 @@
 import { join } from "./deps.ts";
-import { getCWD } from "./helpers.ts";
+import { dedent, getCWD } from "./helpers.ts";
 
 export function printStateExample(isKvdex = false) {
   const userImport = isKvdex
@@ -45,8 +45,22 @@ export async function patchUtilsState(
         : 'import { createDefineSession } from "@innovatedev/fresh-session/define";';
 
       const defineDefinition = isKvdex
-        ? `// Replace '{}' with your custom SessionData if needed\nexport const define = createDefineSession<User, {}>();`
-        : `// Replace 'unknown' and '{}' with your User and SessionData types\nexport const define = createDefineSession<unknown, {}>();`;
+        ? dedent(`
+          // Replace '{}' with your custom SessionData if needed
+          export const define = createDefineSession<User, {}>();
+          
+          /** Strictly typed state for authenticated routes (guarantees user presence) */
+          export type AuthState = State<User, {}> & { user: User; userId: string };
+          /** Authenticated define helper */
+          export const defineAuth = define as any;`)
+        : dedent(`
+          // Replace 'unknown' and '{}' with your User and SessionData types
+          export const define = createDefineSession<unknown, {}>();
+          
+          /** Strictly typed state for authenticated routes (guarantees user presence) */
+          export type AuthState = State<unknown, {}> & { user: unknown; userId: string };
+          /** Authenticated define helper */
+          export const defineAuth = define as any;`);
 
       const updated = content
         .replace(

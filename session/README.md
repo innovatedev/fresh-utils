@@ -13,9 +13,11 @@ humans.
 
 - **Store Agnostic**: Comes with `MemorySessionStorage`, `DenoKvSessionStorage`,
   and `KvDexSessionStorage`.
+- **Fresh 2.0 Native**: Built-in `createDefineSession` helper for
+  zero-boilerplate setup.
 - **Secure Defaults**: HTTP-only, secure cookies, session ID rotation.
 - **Session Security**: Optional User-Agent validation and IP tracking.
-- **Type-Safe**: Fully typed session data.
+- **Type-Safe**: Strictly typed session and user data.
 - **CLI Init**: Easy setup tool.
 
 ## Installation
@@ -43,7 +45,7 @@ This will:
 3. Add dependencies: Automatically injected into `deno.json`.
 4. Create config: `config/session.ts` (and `kv/db.ts` + `kv/models.ts` for
    Kvdex).
-5. Update State: `utils.ts` State interface is patched to extend session State.
+5. Update State: `utils.ts` is patched with `createDefineSession`.
 6. Patch Main: `main.ts` is patched with the session middleware.
 7. Routes: Generated routes (`login`, `register`, `logout`) use static imports
    for better performance and DX.
@@ -56,31 +58,25 @@ This will:
 
 ```typescript
 // config/session.ts
-import {
-  createSessionMiddleware,
-  type SessionOptions,
-} from "@innovatedev/fresh-session";
+import { createSessionMiddleware } from "@innovatedev/fresh-session";
 import { DenoKvSessionStorage } from "@innovatedev/fresh-session/kv-store";
 import type { State } from "../utils.ts";
 
-export const sessionConfig: SessionOptions = {
+export const session = createSessionMiddleware<State>({
   store: new DenoKvSessionStorage(), // Defaults to Deno.openKv()
   cookie: { name: "sessionId", sameSite: "Lax", secure: true },
   trackUserAgent: true,
   trackIp: true,
-};
-
-export const session = createSessionMiddleware<State>(sessionConfig);
+});
 ```
 
 ### 2. Update `utils.ts` (Type Safety)
 
-To get full type safety in your handlers, extend the session `State` and export
-`defineAuth`:
+Use the `createDefineSession` helper to get a pre-typed Fresh `define` object.
 
 ```typescript
 // utils.ts
-import { createDefine } from "fresh";
+import { createDefineSession } from "@innovatedev/fresh-session/define";
 import type { State as SessionState } from "@innovatedev/fresh-session";
 
 export interface User {
@@ -88,15 +84,14 @@ export interface User {
   email: string;
 }
 
-export interface State extends SessionState<User> {
-  shared: string; // Your existing state
-}
+// 1. Define standard define helper
+export const define = createDefineSession<User>();
 
-// Strictly typed state for authenticated routes (user is non-optional)
-export type AuthState = State & { user: User; userId: string };
+// 2. Define strictly typed state for authenticated routes (user is non-optional)
+export type AuthState = SessionState<User> & { user: User; userId: string };
 
-export const define = createDefine<State>();
-export const defineAuth = createDefine<AuthState>();
+// 3. Define authenticated define helper
+export const defineAuth = define as any;
 ```
 
 ### 3. Using Kvdex (Recommended)
@@ -107,7 +102,8 @@ user resolution.
 ```typescript
 // kv/models.ts
 import { type KvValue, model } from "@olli/kvdex";
-import type { SessionDoc } from "@innovatedev/fresh-session/kvdex-store";
+import { createBaseSessionSchema } from "@innovatedev/fresh-session/kvdex-store";
+import { z } from "zod";
 
 export type User = {
   username: string;
@@ -115,7 +111,8 @@ export type User = {
   passwordHash: string;
 } & KvValue;
 
-export const SessionModel = model<SessionDoc<KvValue>>();
+// Use the factory to get the required internal fields
+export const SessionModel = model(createBaseSessionSchema(z));
 export const UserModel = model<User>();
 ```
 
@@ -149,12 +146,12 @@ import { db } from "../kv/db.ts";
 export const session = createSessionMiddleware({
   store: new KvDexSessionStorage({
     collection: db.sessions,
-    userCollection: db.users, // Enables ctx.state.user resolution
+    userCollection: db.users, // Enables automatic ctx.state.user resolution
   }),
 });
 ```
 
-### 3. Register in `main.ts`
+### 4. Register in `main.ts`
 
 ```typescript
 import { session } from "./config/session.ts";
@@ -167,7 +164,7 @@ app.use(session);
 ### 5. Use in Handlers/Pages
 
 Use `define` for public pages and `defineAuth` for routes where the user must be
-logged in. Return `page()` to render the component from a handler:
+logged in.
 
 ```typescript
 import { page } from "fresh";
@@ -176,43 +173,12 @@ import { defineAuth } from "../utils.ts";
 // For authenticated routes (ctx.state.user is non-optional)
 export const handler = defineAuth.handlers({
   async GET(ctx) {
-    // Session data (key-value object)
-    ctx.state.session["foo"] = "bar";
-
     // User is guaranteed to exist here
     const user = ctx.state.user;
     const userId = ctx.state.userId;
 
     return page();
   },
-});
-```
-
-### 5. Stateless API Tokens
-
-You can use the same middleware to protect API routes with Bearer tokens
-(Stateless).
-
-- **Stateless**: No session is stored/persisted.
-- **Unified Context**: `ctx.state.user` is populated.
-- **No-op Flash**: Flash messages are disabled for API requests.
-
-```typescript
-// config/session.ts
-export const session = createSessionMiddleware({
-  store,
-  // 1. Define how to verify the token (e.g. JWT)
-  verifyToken: async (token) => {
-    // Return user if valid, undefined if invalid (or throw)
-    const user = await userFromToken(token);
-    return user;
-  },
-  // 2. Optional: Customize header (Default: Authorization)
-  // tokenHeader: "X-API-Key",
-
-  // 3. Optional: Customize prefix (Default: "Bearer ")
-  // Set to null to receive the raw header value
-  // tokenPrefix: "Token ",
 });
 ```
 

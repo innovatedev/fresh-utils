@@ -1,17 +1,21 @@
 # Changelog
 
-## 0.5.0
+## 0.5.0 (Pre-release)
 
-- **Type Safety**: Added a second generic to `State` and `SessionOptions` for
-  strictly typed session data (`ctx.state.session`).
+- **Type Safety**: Added a second generic `TData` to `State` and
+  `SessionOptions` for strictly typed session data (`ctx.state.session`).
 - **Fresh 2.0**: Introduced `createDefineSession` helper for seamless
   integration with Fresh 2.0's `createDefine` pattern.
-- **Kvdex**: Relaxed `SessionDoc` requirements to make `id` optional in the
-  document value, aligning with standard Kvdex patterns.
-- **Zod**: Exported `baseSessionSchema` to help developers define compatible
-  session models.
-- **Init Refinement**: Updated CLI patchers and templates to use the new
-  `createDefineSession` ergonomics.
+- **Kvdex Store**: Relaxed `SessionDoc` requirements and introduced
+  `createBaseSessionSchema(z)` factory for flexible, zero-dependency Zod
+  integration.
+- **Ergonomics**: Added `AuthState` and `defineAuth` patterns to generated
+  `utils.ts` for strictly typed protected routes.
+- **Dependency Isolation**: Completely removed `zod` from library dependencies,
+  making it a strictly opt-in feature for Kvdex users.
+- **Dependencies**: Updated to `fresh@2.2.2` and `@olli/kvdex@3.6.5`.
+- **CLI**: The `init` command now automatically injects `zod@^3.24.0` into user
+  projects when Kvdex is selected.
 
 ## 0.4.20
 
