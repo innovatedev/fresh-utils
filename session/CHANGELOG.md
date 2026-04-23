@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.18
+
+- **Init**: Fixed registration validation being stripped and improved logic
+  precedence with proper parentheses.
+- **Init**: Optimized Argon2 imports (import only `verify` or `hash` as needed)
+  and fixed missing `await` in generated logout route.
+- **Init**: Consolidated default configuration and improved CLI flag reliability
+  in interactive mode.
+- **Tests**: Added regression test suite for initialization templates.
+
 ## 0.4.17
 
 - **Dynamic Database Configuration**: Kvdex primary indices are now
