@@ -93,6 +93,6 @@ Deno.test("Logout Template - Structure", async () => {
   const content = await readTemplate("logout.ts");
   expect(content).toContain("await ctx.state.logout()");
   expect(content).not.toContain("{{AUTH_LOGIC}}");
-  expect(content).toContain("defineAuth.handlers");
-  expect(content).not.toContain("define.handlers");
+  expect(content).toContain("define.handlers");
+  expect(content).not.toContain("defineAuth.handlers");
 });

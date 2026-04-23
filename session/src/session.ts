@@ -29,9 +29,9 @@ export type SessionData = {
  *
  * @template UserType The type of the user object resolved by `resolveUser`.
  */
-export type State<UserType = unknown> = {
+export type State<UserType = unknown, TData = SessionData> = {
   /** The session data object. Accessing or modifying this affects only the user-space data. */
-  session: SessionData;
+  session: TData;
   /** The unique session identifier. */
   sessionId: string;
   /** The resolved user object (if configured). */
@@ -48,7 +48,7 @@ export type State<UserType = unknown> = {
    * @param userId The unique identifier for the user.
    * @param data Optional initial session data.
    */
-  login(userId: string, data?: SessionData): Promise<void>;
+  login(userId: string, data?: TData): Promise<void>;
 
   /**
    * Log out the current user.
@@ -122,7 +122,7 @@ export interface SessionStorage {
  *
  * @template UserType The type of the resolved user object.
  */
-export interface SessionOptions<UserType = unknown> {
+export interface SessionOptions<UserType = unknown, TData = SessionData> {
   /** The storage backend instance. */
   store: SessionStorage;
   /** Configuration for the session cookie. */
@@ -145,7 +145,7 @@ export interface SessionOptions<UserType = unknown> {
    */
   resolveUser?: (
     userId: string | undefined,
-    session: SessionData,
+    session: TData,
   ) => Promise<UserType | undefined> | UserType | undefined;
   /**
    * Whether to track and validate the User-Agent string.
@@ -183,8 +183,8 @@ export interface SessionOptions<UserType = unknown> {
 }
 
 /** Internal structure for stored sessions. */
-interface StoredSession {
-  data: SessionData;
+interface StoredSession<TData = SessionData> {
+  data: TData;
   flash: Record<string, unknown>;
   userId?: string;
   ua?: string;
@@ -205,10 +205,12 @@ interface StoredSession {
  * @returns A Fresh middleware function.
  */
 export function createSessionMiddleware<
-  AppState extends State = State,
+  // deno-lint-ignore no-explicit-any
+  AppState extends State<UserType, TData> = State<any, any>,
   UserType = unknown,
+  TData = SessionData,
 >(
-  options: SessionOptions<UserType>,
+  options: SessionOptions<UserType, TData>,
 ): (ctx: Context<AppState>) => Promise<Response> {
   const cookieOptions = options.cookie || {};
   const cookieName = cookieOptions.name || "sessionId";
@@ -238,7 +240,7 @@ export function createSessionMiddleware<
         if (user) {
           // Valid API Request
           ctx.state.user = user as unknown as AppState["user"];
-          ctx.state.session = {}; // Stateless
+          ctx.state.session = {} as TData; // Stateless
           ctx.state.sessionId = crypto.randomUUID(); // Ephemeral
 
           // No-op Flash info
@@ -248,7 +250,7 @@ export function createSessionMiddleware<
           ctx.state.hasFlash = (_key: string) => false;
 
           // No-op Login/Logout for API
-          ctx.state.login = (_userId: string, _data?: SessionData) =>
+          ctx.state.login = (_userId: string, _data?: TData) =>
             Promise.resolve();
           ctx.state.logout = () => Promise.resolve();
 
@@ -279,8 +281,8 @@ export function createSessionMiddleware<
     }
 
     // Internal state
-    let storedSession: StoredSession = {
-      data: {},
+    let storedSession: StoredSession<TData> = {
+      data: {} as TData,
       flash: {},
       lastSeenAt: Date.now(),
       ua: currentUa,
@@ -293,9 +295,9 @@ export function createSessionMiddleware<
       }
       sessionId = crypto.randomUUID();
       ctx.state.sessionId = sessionId;
-      ctx.state.session = {};
+      ctx.state.session = {} as TData;
       storedSession = {
-        data: {},
+        data: {} as TData,
         flash: {},
         lastSeenAt: Date.now(),
         ua: currentUa,
@@ -308,7 +310,7 @@ export function createSessionMiddleware<
       if (raw) {
         // Check if it's the new structure
         if (typeof raw === "object" && "data" in raw && "flash" in raw) {
-          storedSession = raw as StoredSession;
+          storedSession = raw as StoredSession<TData>;
 
           // Validation
           if (options.trackUserAgent && storedSession.ua !== currentUa) {
@@ -317,7 +319,7 @@ export function createSessionMiddleware<
           }
         } else {
           // Migration: Treat flat object as data
-          storedSession.data = raw as SessionData;
+          storedSession.data = raw as TData;
           // Hydrate tracking info for migrated session
           storedSession.ua = currentUa;
           storedSession.ip = currentIp;
@@ -369,10 +371,10 @@ export function createSessionMiddleware<
     };
 
     // Implement Login/Logout
-    ctx.state.login = async (userId: string, data?: SessionData) => {
+    ctx.state.login = async (userId: string, data?: TData) => {
       await rotateSession();
       storedSession.userId = userId;
-      storedSession.data = data || {};
+      storedSession.data = data || ({} as TData);
       ctx.state.session = storedSession.data;
     };
 

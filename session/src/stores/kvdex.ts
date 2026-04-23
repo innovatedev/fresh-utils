@@ -12,7 +12,6 @@
  * // ... setup ...
  * ```
  */
-
 import type { SessionStorage } from "../session.ts";
 import type { Collection, KvValue, ParseId } from "@olli/kvdex";
 
@@ -21,22 +20,53 @@ export type { Collection, KvValue };
 export type { SessionStorage } from "../session.ts";
 
 /**
+ * Generates the base Zod schema for a stored session document in kvdex.
+ *
+ * Use this to extend your session models to ensure they include all
+ * internal fields required by `fresh-session`.
+ *
+ * @param z The Zod instance to use (usually imported from kvdex).
+ * @returns A Zod schema object.
+ *
+ * @example
+ * ```ts
+ * import { z } from "@olli/kvdex";
+ * import { createBaseSessionSchema } from "@innovatedev/fresh-session/kvdex-store";
+ *
+ * export const MySessionSchema = createBaseSessionSchema(z).extend({
+ *   theme: z.enum(["light", "dark"]).default("light"),
+ * });
+ * ```
+ */
+// deno-lint-ignore no-explicit-any
+export function createBaseSessionSchema(z: any): any {
+  return z
+    .object({
+      /** The unique user identifier (if logged in). */
+      userId: z.string().optional(),
+      /** Internal flash message storage. */
+      flash: z.record(z.any()).default({}),
+      /** Timestamp of the last user interaction. */
+      lastSeenAt: z.number(),
+      /** Captured User-Agent string for validation. */
+      ua: z.string().optional(),
+      /** Captured Client IP address for validation. */
+      ip: z.string().optional(),
+    }).passthrough();
+}
+
+/**
  * Minimal shape required for the session document stored in kvdex.
  *
  * Your kvdex schema for the session collection MUST generally conform to this shape,
  * though you can extend `data` with your specific `SessionData` type.
  */
 export type SessionDoc<TData extends KvValue> = {
-  id: string;
   createdAt: Date;
   updatedAt: Date;
   expiresAt: Date;
   data: TData;
-} | {
-  createdAt: Date;
-  updatedAt: Date;
-  expiresAt: Date;
-  data: TData;
+  id?: string;
 };
 
 /**

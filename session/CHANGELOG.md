@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.0
+
+- **Type Safety**: Added a second generic to `State` and `SessionOptions` for
+  strictly typed session data (`ctx.state.session`).
+- **Fresh 2.0**: Introduced `createDefineSession` helper for seamless
+  integration with Fresh 2.0's `createDefine` pattern.
+- **Kvdex**: Relaxed `SessionDoc` requirements to make `id` optional in the
+  document value, aligning with standard Kvdex patterns.
+- **Zod**: Exported `baseSessionSchema` to help developers define compatible
+  session models.
+- **Init Refinement**: Updated CLI patchers and templates to use the new
+  `createDefineSession` ergonomics.
+
 ## 0.4.20
 
 - **UI/UX**: Synchronized vanilla Tailwind templates with DaisyUI patterns

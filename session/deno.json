@@ -1,6 +1,6 @@
 {
   "name": "@innovatedev/fresh-session",
-  "version": "0.4.20",
+  "version": "0.5.0-alpha.1",
   "tasks": {
     "check": "deno fmt --check && deno check ./src && deno lint ./src && deno run -A ../tools/check-docs.ts && deno test -A ./tests"
   },
@@ -9,7 +9,8 @@
     "./memory-store": "./src/stores/memory.ts",
     "./kv-store": "./src/stores/kv.ts",
     "./init": "./src/init/mod.ts",
-    "./kvdex-store": "./src/stores/kvdex.ts"
+    "./kvdex-store": "./src/stores/kvdex.ts",
+    "./define": "./src/define.ts"
   },
   "imports": {
     "@preact/signals": "npm:@preact/signals@^2.5.0",

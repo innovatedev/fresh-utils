@@ -7,11 +7,11 @@ export function printStateExample(isKvdex = false) {
     : "";
   const userDefinition = isKvdex
     ? ""
-    : "\n  export interface User { username: string; email: string; }";
-  const stateExtends = isKvdex ? "SessionState<User>" : "SessionState";
+    : "\n  export interface User { id: string; username: string; email: string; }";
+  const defineArgs = isKvdex ? "<User>" : "<User>";
 
   console.log(
-    `\nPlease update your State interface in utils.ts to extend the session State:\n\n  import type { State as SessionState } from "@innovatedev/fresh-session";${userImport}\n${userDefinition}\n  export interface State extends ${stateExtends} {\n    // your existing properties...\n  }\n\n  export type AuthState = State & { user: User; userId: string };\n  export const defineAuth = createDefine<AuthState>();\n`,
+    `\nPlease update your define object in utils.ts to use the session helper:\n\n  import { createDefineSession } from "@innovatedev/fresh-session/define";${userImport}\n${userDefinition}\n\n  export const define = createDefineSession${defineArgs}();\n`,
   );
 }
 
@@ -41,21 +41,25 @@ export async function patchUtilsState(
       }
 
       const sessionImport = isKvdex
-        ? 'import type { State as SessionState } from "@innovatedev/fresh-session";\nimport type { User } from "./kv/models.ts";'
-        : 'import type { State as SessionState } from "@innovatedev/fresh-session";';
+        ? 'import { createDefineSession } from "@innovatedev/fresh-session/define";\nimport type { User } from "./kv/models.ts";'
+        : 'import { createDefineSession } from "@innovatedev/fresh-session/define";';
 
-      const stateInterface = isKvdex
-        ? `export interface State extends SessionState<User> {\n  shared: string;\n}\n\nexport type AuthState = State & { user: User; userId: string };\nexport const defineAuth = createDefine<AuthState>();`
-        : `export interface State extends SessionState {\n  shared: string;\n}\n\n// Replace 'unknown' with your User type for full type safety\nexport type AuthState = State & { user: unknown; userId: string };\nexport const defineAuth = createDefine<AuthState>();`;
+      const defineDefinition = isKvdex
+        ? `// Replace '{}' with your custom SessionData if needed\nexport const define = createDefineSession<User, {}>();`
+        : `// Replace 'unknown' and '{}' with your User and SessionData types\nexport const define = createDefineSession<unknown, {}>();`;
 
       const updated = content
         .replace(
           /import\s*\{\s*createDefine\s*\}\s*from\s*"fresh";/,
-          `import { createDefine } from "fresh";\n${sessionImport}`,
+          sessionImport,
         )
         .replace(
           /\/\/.*\n*export interface State \{[^}]*\}/s,
-          stateInterface,
+          "",
+        )
+        .replace(
+          /export const define = createDefine<State>\(\);/,
+          defineDefinition,
         );
 
       await Deno.writeTextFile(utilsPath, updated);

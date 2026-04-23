@@ -2,7 +2,8 @@ import { define } from "../utils.ts";
 import { hash } from "@felix/argon2";
 
 export const handler = define.handlers({
-  async POST(ctx) {
+  // deno-lint-ignore no-explicit-any
+  async POST(ctx: any) {
     const form = await ctx.req.formData();
     const username = form.get("username")?.toString();
     const password = form.get("password")?.toString();

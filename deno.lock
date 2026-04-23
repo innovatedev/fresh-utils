@@ -63,8 +63,7 @@
     "npm:esbuild@~0.25.5": "0.25.7",
     "npm:preact-render-to-string@^6.6.3": "6.6.6_preact@10.29.0",
     "npm:preact@^10.27.0": "10.29.0",
-    "npm:preact@^10.27.2": "10.29.0",
-    "npm:zod@^3.24.0": "3.25.76"
+    "npm:preact@^10.27.2": "10.29.0"
   },
   "jsr": {
     "@cliffy/ansi@1.0.0-rc.8": {
@@ -178,8 +177,7 @@
         "jsr:@std/bytes@^1.0.4",
         "jsr:@std/cli@1.0.12",
         "jsr:@std/collections",
-        "jsr:@std/ulid",
-        "npm:zod"
+        "jsr:@std/ulid"
       ]
     },
     "@std/assert@1.0.16": {
@@ -475,9 +473,6 @@
     },
     "preact@10.29.0": {
       "integrity": "sha512-wSAGyk2bYR1c7t3SZ3jHcM6xy0lcBcDel6lODcs9ME6Th++Dx2KU+6D3HD8wMMKGA8Wpw7OMd3/4RGzYRpzwRg=="
-    },
-    "zod@3.25.76": {
-      "integrity": "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="
     }
   },
   "remote": {
