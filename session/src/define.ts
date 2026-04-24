@@ -15,17 +15,20 @@ import type { SessionData, State } from "./session.ts";
  *
  * @template TUser The type of the user object.
  * @template TData The type of the custom session data.
+ * @template TExtraState Optional extra state to merge (e.g. from other plugins).
  *
  * @example
  * ```ts
  * interface User { id: string; name: string; }
  * interface MySessionData { theme: "light" | "dark"; }
+ * interface ExtraState { plugins: Record<string, any> }
  *
- * export const define = createDefineSession<User, MySessionData>();
+ * export const define = createDefineSession<User, MySessionData, ExtraState>();
  *
  * export const handler = define.handlers({
  *   GET(ctx) {
  *     const theme = ctx.state.session.theme; // Strictly typed
+ *     const plugins = ctx.state.plugins;     // Also typed
  *     return ctx.next();
  *   }
  * });
@@ -34,9 +37,10 @@ import type { SessionData, State } from "./session.ts";
 export function createDefineSession<
   TUser = unknown,
   TData = SessionData,
+  TExtraState = Record<string, unknown>,
 > // deno-lint-ignore no-explicit-any
 (): any {
-  return createDefine<State<TUser, TData>>();
+  return createDefine<State<TUser, TData> & TExtraState>();
 }
 
 /**

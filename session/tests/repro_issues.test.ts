@@ -99,6 +99,7 @@ Deno.test("KvDexSessionStorage - Issues Reproduction", async (t) => {
     const db = kvdex({
       kv,
       schema: {
+        // deno-lint-ignore no-explicit-any
         sessions: collection(model<any>()),
         // Assume users are indexed by realId mostly, but KV key is something else
         users: collection(UserModel, {
@@ -129,7 +130,9 @@ Deno.test("KvDexSessionStorage - Issues Reproduction", async (t) => {
       throw new Error("Should have found user via userIndex");
     } else {
       console.log("Issue 2 Resolved:", resolved);
-      expect(resolved.username).toBe("alice");
+      // deno-lint-ignore no-explicit-any
+      expect((resolved as any).username).toBe("alice");
+      // deno-lint-ignore no-explicit-any
       expect((resolved as any).__id__).toBe(kvKey);
     }
   });

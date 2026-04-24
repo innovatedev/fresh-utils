@@ -1,9 +1,10 @@
 import { expect } from "./deps.ts";
+// deno-lint-ignore no-import-prefix
 import { z } from "npm:zod@^3.24.0";
-import { createBaseSessionSchema } from "../src/stores/kvdex.ts";
+import { sessionSchemaFactory } from "../src/stores/kvdex.ts";
 
-Deno.test("createBaseSessionSchema Factory", async (t) => {
-  const schema = createBaseSessionSchema(z);
+Deno.test("sessionSchemaFactory", async (t) => {
+  const schema = sessionSchemaFactory(z);
 
   await t.step("validates a standard session document", () => {
     const validDoc = {

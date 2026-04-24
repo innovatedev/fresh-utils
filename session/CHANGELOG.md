@@ -4,11 +4,12 @@
 
 - **Type Safety**: Added a second generic `TData` to `State` and
   `SessionOptions` for strictly typed session data (`ctx.state.session`).
-- **Fresh 2.0**: Introduced `createDefineSession` helper for seamless
-  integration with Fresh 2.0's `createDefine` pattern.
-- **Kvdex Store**: Relaxed `SessionDoc` requirements and introduced
-  `createBaseSessionSchema(z)` factory for flexible, zero-dependency Zod
-  integration.
+- **Fresh 2.0**: Enhanced `createDefineSession` with a third generic
+  `TExtraState` to support multi-plugin setups (e.g., merging `plugins` state).
+- **Kvdex Store**: Relaxed constructor types to allow collections with custom
+  index configurations without manual casting.
+- **API Refinement**: Renamed `createBaseSessionSchema` to
+  `sessionSchemaFactory` for better clarity.
 - **Ergonomics**: Added `AuthState` and `defineAuth` patterns to generated
   `utils.ts` for strictly typed protected routes.
 - **Dependency Isolation**: Completely removed `zod` from library dependencies,

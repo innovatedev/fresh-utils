@@ -20,7 +20,7 @@ export type { Collection, KvValue };
 export type { SessionStorage } from "../session.ts";
 
 /**
- * Generates the base Zod schema for a stored session document in kvdex.
+ * Factory for creating the base Zod schema for a stored session document in kvdex.
  *
  * Use this to extend your session models to ensure they include all
  * internal fields required by `fresh-session`.
@@ -31,15 +31,15 @@ export type { SessionStorage } from "../session.ts";
  * @example
  * ```ts
  * import { z } from "@olli/kvdex";
- * import { createBaseSessionSchema } from "@innovatedev/fresh-session/kvdex-store";
+ * import { sessionSchemaFactory } from "@innovatedev/fresh-session/kvdex-store";
  *
- * export const MySessionSchema = createBaseSessionSchema(z).extend({
+ * export const MySessionSchema = sessionSchemaFactory(z).extend({
  *   theme: z.enum(["light", "dark"]).default("light"),
  * });
  * ```
  */
 // deno-lint-ignore no-explicit-any
-export function createBaseSessionSchema(z: any): any {
+export function sessionSchemaFactory(z: any): any {
   return z
     .object({
       /** The unique user identifier (if logged in). */
@@ -54,6 +54,14 @@ export function createBaseSessionSchema(z: any): any {
       ip: z.string().optional(),
     }).passthrough();
 }
+
+/**
+ * Legacy alias for sessionSchemaFactory.
+ *
+ * @deprecated Use sessionSchemaFactory instead.
+ */
+// deno-lint-ignore no-explicit-any
+export const createBaseSessionSchema: (z: any) => any = sessionSchemaFactory;
 
 /**
  * Minimal shape required for the session document stored in kvdex.
@@ -76,14 +84,13 @@ export interface KvDexSessionStorageOptions<
   TSessionData extends KvValue,
   TUser extends KvValue,
 > {
-  // Collection must accept SessionDoc<TSessionData> as input
   /** The kvdex collection for sessions. */
   // deno-lint-ignore no-explicit-any
-  collection: Collection<SessionDoc<TSessionData>, any, any>;
+  collection: Collection<any, any, any>;
 
   /** The kvdex collection for users. */
   // deno-lint-ignore no-explicit-any
-  userCollection: Collection<TUser, any, any>;
+  userCollection: Collection<any, any, any>;
   /**
    * Session expiration in seconds.
    */
@@ -126,9 +133,9 @@ export class KvDexSessionStorage<
   const TUser extends KvValue,
 > implements SessionStorage {
   // deno-lint-ignore no-explicit-any
-  #collection: Collection<SessionDoc<TSessionData>, any, any>;
+  #collection: Collection<any, any, any>;
   // deno-lint-ignore no-explicit-any
-  #userCollection: Collection<TUser, any, any>;
+  #userCollection: Collection<any, any, any>;
   #expireAfter?: number;
   #userIndex?: string;
 
