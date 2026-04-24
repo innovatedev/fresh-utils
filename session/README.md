@@ -11,6 +11,7 @@ humans.
 
 ## Features
 
+- [Changelog](./CHANGELOG.md)
 - **Store Agnostic**: Comes with `MemorySessionStorage`, `DenoKvSessionStorage`,
   and `KvDexSessionStorage`.
 - **Fresh 2.0 Native**: Built-in `createDefineSession` helper for
@@ -76,7 +77,10 @@ Use the `createDefineSession` helper to get a pre-typed Fresh `define` object.
 
 ```typescript
 // utils.ts
-import { createDefineSession } from "@innovatedev/fresh-session/define";
+import {
+  createDefineSession,
+  type Define,
+} from "@innovatedev/fresh-session/define";
 import type { State as SessionState } from "@innovatedev/fresh-session";
 
 export interface User {
@@ -84,14 +88,33 @@ export interface User {
   email: string;
 }
 
-// 1. Define standard define helper
-export const define = createDefineSession<User>();
+/** Custom session-specific data (ctx.state.session) */
+export interface SessionData extends Record<string, unknown> {
+  theme?: "light" | "dark";
+}
 
-// 2. Define strictly typed state for authenticated routes (user is non-optional)
-export type AuthState = SessionState<User> & { user: User; userId: string };
+/** Extra state from other plugins (e.g. ctx.state.plugins) */
+export interface ExtraState extends Record<string, unknown> {
+  isPro?: boolean;
+}
 
-// 3. Define authenticated define helper
-export const defineAuth = define as any;
+// Define helper with all three generics
+// 1. TUser: The user object type
+// 2. TData: Custom session data fields
+// 3. TExtraState: Additional state injected by other plugins
+export const define = createDefineSession<User, SessionData, ExtraState>();
+
+/**
+ * Strictly typed state for authenticated routes.
+ * Combines session state, custom data, and extra plugin state.
+ */
+export type AuthState =
+  & SessionState<User, SessionData>
+  & ExtraState
+  & { user: User; userId: string };
+
+// Safe cast using the exported Define type
+export const defineAuth = define as Define<AuthState>;
 ```
 
 ### 3. Using Kvdex (Recommended)
@@ -102,7 +125,7 @@ user resolution.
 ```typescript
 // kv/models.ts
 import { type KvValue, model } from "@olli/kvdex";
-import { createBaseSessionSchema } from "@innovatedev/fresh-session/kvdex-store";
+import { sessionSchemaFactory } from "@innovatedev/fresh-session/kvdex-store";
 import { z } from "zod";
 
 export type User = {
@@ -112,7 +135,7 @@ export type User = {
 } & KvValue;
 
 // Use the factory to get the required internal fields
-export const SessionModel = model(createBaseSessionSchema(z));
+export const SessionModel = model(sessionSchemaFactory(z));
 export const UserModel = model<User>();
 ```
 

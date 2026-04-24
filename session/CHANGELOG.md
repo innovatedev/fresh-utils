@@ -1,17 +1,21 @@
 # Changelog
 
-## 0.5.0 (Pre-release)
+## 0.5.0
 
 - **Type Safety**: Added a second generic `TData` to `State` and
   `SessionOptions` for strictly typed session data (`ctx.state.session`).
 - **Fresh 2.0**: Enhanced `createDefineSession` with a third generic
-  `TExtraState` to support multi-plugin setups (e.g., merging `plugins` state).
+  `TExtraState` and an explicit `Define` return type for full IDE inference.
 - **Kvdex Store**: Relaxed constructor types to allow collections with custom
   index configurations without manual casting.
 - **API Refinement**: Renamed `createBaseSessionSchema` to
   `sessionSchemaFactory` for better clarity.
-- **Ergonomics**: Added `AuthState` and `defineAuth` patterns to generated
-  `utils.ts` for strictly typed protected routes.
+- **Ergonomics**: Removed all redundant `any` casts from generated auth
+  templates. The `defineAuth` helper is now strictly typed via
+  `Define<AuthState>`.
+- **UI Modernization**: All generated templates now use modern Tailwind classes
+  (e.g., `shrink-0`, `grow`) and refined focus ring patterns for Tailwind 4
+  compatibility.
 - **Dependency Isolation**: Completely removed `zod` from library dependencies,
   making it a strictly opt-in feature for Kvdex users.
 - **Dependencies**: Updated to `fresh@2.2.2` and `@olli/kvdex@3.6.5`.

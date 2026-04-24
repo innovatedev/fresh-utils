@@ -1,8 +1,8 @@
 import { expect } from "./deps.ts";
-import { collection, kvdex, type KvValue, model } from "@olli/kvdex";
+import { collection, kvdex, model } from "@olli/kvdex";
 import { KvDexSessionStorage } from "../src/stores/kvdex.ts";
 
-Deno.test("KvDexSessionStorage - Flash Message Persistence", async (t) => {
+Deno.test("KvDexSessionStorage - Flash Message Persistence", async (_t) => {
   const kv = await Deno.openKv(":memory:");
   const db = kvdex({
     kv,
@@ -42,13 +42,7 @@ Deno.test("KvDexSessionStorage - Flash Message Persistence", async (t) => {
 
   // 3. Verify it is GONE
   const updated = await store.get(sessionId);
-
-  if ((updated as any).flash[flashKey]) {
-    console.error("Flash key persisted:", (updated as any).flash);
-    throw new Error("Flash message persisted after cleanup update!");
-  } else {
-    console.log("Flash message successfully removed.");
-  }
+  expect((updated as any).flash[flashKey]).toBeUndefined();
 
   kv.close();
 });

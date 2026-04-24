@@ -1,7 +1,4 @@
-// This is a dummy file to verify template types in development.
-// It is not copied to the user's project.
-
-import { createDefineSession } from "../../define.ts";
+import { createDefineSession, type Define } from "../../define.ts";
 import type { State } from "../../session.ts";
 
 export type { State };
@@ -12,16 +9,23 @@ export interface SessionData extends Record<string, unknown> {
 }
 
 /**
+ * Extra state from other plugins (e.g. plugins: Record<string, any>)
+ */
+export interface ExtraState extends Record<string, unknown> {}
+
+/**
  * Standard Fresh 2.0 define helper with session state.
  * Use this for most pages and public handlers.
+ *
+ * Generics: <User, SessionData, ExtraState>
  */
-export const define = createDefineSession<User, SessionData>();
+export const define = createDefineSession<User, SessionData, ExtraState>();
 
 /**
  * Strictly typed state for authenticated routes.
  * Guarantees that 'user' and 'userId' are present.
  */
-export type AuthState = State<User, SessionData> & {
+export type AuthState = State<User, SessionData> & ExtraState & {
   user: User;
   userId: string;
 };
@@ -30,5 +34,4 @@ export type AuthState = State<User, SessionData> & {
  * Authenticated define helper.
  * Use this for routes that require a logged-in user.
  */
-// deno-lint-ignore no-explicit-any
-export const defineAuth = define as any; // Casted to ensure safety in handlers
+export const defineAuth = define as Define<AuthState>;

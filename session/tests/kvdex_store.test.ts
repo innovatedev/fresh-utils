@@ -61,10 +61,6 @@ Deno.test("KvDexSessionStorage", async (t) => {
     await store.set(sessionId, { step: 2 });
     const secondGet = await db.sessions.find(sessionId);
 
-    // Debug logging
-    console.log("First:", firstGet?.value);
-    console.log("Second:", secondGet?.value);
-
     expect(secondGet?.value.data).toEqual({ step: 2 });
     expect(secondGet?.value.createdAt).toEqual(firstCreatedAt);
     expect(secondGet?.value.updatedAt.getTime()).toBeGreaterThanOrEqual(

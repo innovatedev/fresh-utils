@@ -58,7 +58,7 @@ export function sessionSchemaFactory(z: any): any {
 /**
  * Legacy alias for sessionSchemaFactory.
  *
- * @deprecated Use sessionSchemaFactory instead.
+ * @deprecated Will be removed in v1.0.0. Use {@link sessionSchemaFactory} instead.
  */
 // deno-lint-ignore no-explicit-any
 export const createBaseSessionSchema: (z: any) => any = sessionSchemaFactory;

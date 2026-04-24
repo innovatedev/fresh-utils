@@ -40,32 +40,32 @@ export async function patchUtilsState(
         return;
       }
 
-      const sessionImport = isKvdex
-        ? 'import { createDefineSession } from "@innovatedev/fresh-session/define";\nimport type { User } from "./kv/models.ts";'
-        : 'import { createDefineSession } from "@innovatedev/fresh-session/define";';
+      const sessionImports = isKvdex
+        ? 'import { createDefineSession, type Define } from "@innovatedev/fresh-session/define";\nimport type { User } from "./kv/models.ts";'
+        : 'import { createDefineSession, type Define } from "@innovatedev/fresh-session/define";';
 
       const defineDefinition = isKvdex
         ? dedent(`
-          // Replace '{}' with your custom SessionData if needed
-          export const define = createDefineSession<User, {}>();
+          // Replace '{}' with your custom SessionData and ExtraState if needed
+          export const define = createDefineSession<User, {}, {}>();
           
           /** Strictly typed state for authenticated routes (guarantees user presence) */
           export type AuthState = State<User, {}> & { user: User; userId: string };
           /** Authenticated define helper */
-          export const defineAuth = define as any;`)
+          export const defineAuth = define as Define<AuthState>;`)
         : dedent(`
-          // Replace 'unknown' and '{}' with your User and SessionData types
-          export const define = createDefineSession<unknown, {}>();
+          // Replace 'unknown' and '{}' with your User, SessionData and ExtraState types
+          export const define = createDefineSession<unknown, {}, {}>();
           
           /** Strictly typed state for authenticated routes (guarantees user presence) */
           export type AuthState = State<unknown, {}> & { user: unknown; userId: string };
           /** Authenticated define helper */
-          export const defineAuth = define as any;`);
+          export const defineAuth = define as Define<AuthState>;`);
 
       const updated = content
         .replace(
           /import\s*\{\s*createDefine\s*\}\s*from\s*"fresh";/,
-          sessionImport,
+          sessionImports,
         )
         .replace(
           /\/\/.*\n*export interface State \{[^}]*\}/s,

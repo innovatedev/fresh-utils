@@ -34,17 +34,12 @@ Deno.test("KvDexSessionStorage - Issues Reproduction", async (t) => {
     });
 
     const sessionId = "session_primary_1";
-    try {
-      await store.set(sessionId, { foo: "bar" });
-      // Update
-      await store.set(sessionId, { foo: "baz" });
+    await store.set(sessionId, { foo: "bar" });
+    // Update
+    await store.set(sessionId, { foo: "baz" });
 
-      const res = await store.get(sessionId);
-      expect(res).toEqual({ foo: "baz" });
-    } catch (e) {
-      console.log("Issue 1 reproduced:", (e as Error).message);
-      throw e;
-    }
+    const res = await store.get(sessionId);
+    expect(res).toEqual({ foo: "baz" });
   });
 
   await t.step("Issue 1 Workaround: check if update works", async () => {
@@ -79,14 +74,9 @@ Deno.test("KvDexSessionStorage - Issues Reproduction", async (t) => {
     });
 
     // Try update
-    try {
-      await db.sessions.update(sessionId, { data: { a: 2 } });
-      const res = await db.sessions.find(sessionId);
-      expect(res?.value.data).toEqual({ a: 2 });
-    } catch (e) {
-      console.log("Update workaround failed:", (e as Error).message);
-      throw e;
-    }
+    await db.sessions.update(sessionId, { data: { a: 2 } });
+    const res = await db.sessions.find(sessionId);
+    expect(res?.value.data).toEqual({ a: 2 });
   });
 
   // Issue 2: resolveUser mismatch
@@ -125,16 +115,11 @@ Deno.test("KvDexSessionStorage - Issues Reproduction", async (t) => {
     // Session claims user is "user_uuid_1"
     const resolved = await store.resolveUser(semanticId);
 
-    if (!resolved) {
-      console.log("Issue 2 reproduced: User not found via semantic ID");
-      throw new Error("Should have found user via userIndex");
-    } else {
-      console.log("Issue 2 Resolved:", resolved);
-      // deno-lint-ignore no-explicit-any
-      expect((resolved as any).username).toBe("alice");
-      // deno-lint-ignore no-explicit-any
-      expect((resolved as any).__id__).toBe(kvKey);
-    }
+    expect(resolved).toBeDefined();
+    // deno-lint-ignore no-explicit-any
+    expect((resolved as any).username).toBe("alice");
+    // deno-lint-ignore no-explicit-any
+    expect((resolved as any).__id__).toBe(kvKey);
   });
 
   kv.close();

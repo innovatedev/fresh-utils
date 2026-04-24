@@ -7,8 +7,10 @@
  * with session and user state pre-configured.
  */
 
-import { type Context, createDefine } from "fresh";
+import { type Context, createDefine, type Define } from "fresh";
 import type { SessionData, State } from "./session.ts";
+
+export type { Define };
 
 /**
  * Creates a Fresh `define` helper with session state pre-configured.
@@ -38,8 +40,7 @@ export function createDefineSession<
   TUser = unknown,
   TData = SessionData,
   TExtraState = Record<string, unknown>,
-> // deno-lint-ignore no-explicit-any
-(): any {
+>(): Define<State<TUser, TData> & TExtraState> {
   return createDefine<State<TUser, TData> & TExtraState>();
 }
 
