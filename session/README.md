@@ -11,7 +11,7 @@ humans.
 
 ## Features
 
-- [Changelog](./CHANGELOG.md)
+- [Changelog](https://github.com/innovatedev/fresh-utils/blob/main/session/CHANGELOG.md)
 - **Store Agnostic**: Comes with `MemorySessionStorage`, `DenoKvSessionStorage`,
   and `KvDexSessionStorage`.
 - **Fresh 2.0 Native**: Built-in `createDefineSession` helper for
