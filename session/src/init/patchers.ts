@@ -41,24 +41,42 @@ export async function patchUtilsState(
       }
 
       const sessionImports = isKvdex
-        ? 'import { createDefineSession, type Define } from "@innovatedev/fresh-session/define";\nimport type { User } from "./kv/models.ts";'
-        : 'import { createDefineSession, type Define } from "@innovatedev/fresh-session/define";';
+        ? 'import { createDefineSession, type Define } from "@innovatedev/fresh-session/define";\nimport type { State } from "@innovatedev/fresh-session";\nexport type { State };\nimport type { User } from "./kv/models.ts";'
+        : 'import { createDefineSession, type Define } from "@innovatedev/fresh-session/define";\nimport type { State } from "@innovatedev/fresh-session";\nexport type { State };';
+
+      // 1. Extract existing State properties
+      const stateMatch = content.match(/export interface State \{([\s\S]*?)\}/);
+      const extraStateBody = stateMatch ? stateMatch[1].trim() : "";
+
+      const extraStateDefinition = extraStateBody
+        ? `/** Existing state properties from your project */\nexport interface ExtraState {\n  ${extraStateBody}\n}`
+        : "export interface ExtraState extends Record<string, unknown> {}";
 
       const defineDefinition = isKvdex
         ? dedent(`
-          // Replace '{}' with your custom SessionData and ExtraState if needed
-          export const define = createDefineSession<User, {}, {}>();
+          ${extraStateDefinition}
+
+          /** Global application state */
+          export type AppState = State<User, {}> & ExtraState;
+
+          // Replace '{}' with your custom SessionData if needed
+          export const define = createDefineSession<User, {}, ExtraState>();
           
           /** Strictly typed state for authenticated routes (guarantees user presence) */
-          export type AuthState = State<User, {}> & { user: User; userId: string };
+          export type AuthState = AppState & { user: User; userId: string };
           /** Authenticated define helper */
           export const defineAuth = define as Define<AuthState>;`)
         : dedent(`
-          // Replace 'unknown' and '{}' with your User, SessionData and ExtraState types
-          export const define = createDefineSession<unknown, {}, {}>();
+          ${extraStateDefinition}
+
+          /** Global application state */
+          export type AppState = State<unknown, {}> & ExtraState;
+
+          // Replace 'unknown' and '{}' with your User and SessionData types
+          export const define = createDefineSession<unknown, {}, ExtraState>();
           
           /** Strictly typed state for authenticated routes (guarantees user presence) */
-          export type AuthState = State<unknown, {}> & { user: unknown; userId: string };
+          export type AuthState = AppState & { user: unknown; userId: string };
           /** Authenticated define helper */
           export const defineAuth = define as Define<AuthState>;`);
 
@@ -68,7 +86,7 @@ export async function patchUtilsState(
           sessionImports,
         )
         .replace(
-          /\/\/.*\n*export interface State \{[^}]*\}/s,
+          /export interface State \{[\s\S]*?\}/,
           "",
         )
         .replace(

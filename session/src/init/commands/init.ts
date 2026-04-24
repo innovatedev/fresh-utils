@@ -224,7 +224,7 @@ export async function initAction(
         : dedent(`
             <label class="block space-y-1">
               <span class="block text-sm font-semibold text-gray-700">Username</span>
-              <input type="text" name="username" placeholder="Username" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all" required />
+              <input type="text" name="username" placeholder="Username" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 sm:text-sm transition-all outline-none" required />
             </label>`))
       : "",
     enableEmail
@@ -239,7 +239,7 @@ export async function initAction(
         : dedent(`
             <label class="block space-y-1">
               <span class="block text-sm font-semibold text-gray-700">Email</span>
-              <input type="email" name="email" placeholder="email@example.com" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all" required />
+              <input type="email" name="email" placeholder="email@example.com" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 sm:text-sm transition-all outline-none" required />
             </label>`))
       : "",
   ].filter(Boolean).join("\n");
@@ -261,7 +261,7 @@ export async function initAction(
     : dedent(`
         <label class="block space-y-1">
           <span class="block text-sm font-semibold text-gray-700">${loginLabel}</span>
-          <input type="${loginType}" name="login" placeholder="${loginPlaceholder}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all" required />
+          <input type="${loginType}" name="login" placeholder="${loginPlaceholder}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 sm:text-sm transition-all outline-none" required />
         </label>`);
 
   const registerExtraction = [

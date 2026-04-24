@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.1
+
+- **Testing**: Added a robust E2E integration test suite
+  (`tests/init_integration.test.ts`) that validates project generation against a
+  real Fresh 2.0 boilerplate fixture.
+- **Type Safety**: Finalized the `AppState` and `State` re-export logic in
+  `utils.ts` to ensure perfect type inference for `define.page` and
+  `define.handlers`.
+- **Infrastructure**: Added a `tests/fixtures/fresh-boilerplate` directory for
+  automated project-level validation.
+- **Patcher Fix**: Improved `patchUtilsState` to correctly handle local scope
+  resolution for the `State` type.
+
 ## 0.5.0
 
 - **Type Safety**: Added a second generic `TData` to `State` and

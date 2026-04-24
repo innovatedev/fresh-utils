@@ -4,26 +4,38 @@ import { dedent } from "../src/init/helpers.ts";
 // We'll test the string generation logic directly
 function getExpectedImports(isKvdex: boolean) {
   return isKvdex
-    ? 'import { createDefineSession, type Define } from "@innovatedev/fresh-session/define";\nimport type { User } from "./kv/models.ts";'
-    : 'import { createDefineSession, type Define } from "@innovatedev/fresh-session/define";';
+    ? 'import { createDefineSession, type Define } from "@innovatedev/fresh-session/define";\nimport type { State } from "@innovatedev/fresh-session";\nexport type { State };\nimport type { User } from "./kv/models.ts";'
+    : 'import { createDefineSession, type Define } from "@innovatedev/fresh-session/define";\nimport type { State } from "@innovatedev/fresh-session";\nexport type { State };';
 }
 
 function getExpectedStateInterface(isKvdex: boolean) {
+  const extraStateDefinition =
+    "export interface ExtraState extends Record<string, unknown> {}";
   return isKvdex
     ? dedent(`
-        // Replace '{}' with your custom SessionData and ExtraState if needed
-        export const define = createDefineSession<User, {}, {}>();
+        ${extraStateDefinition}
+
+        /** Global application state */
+        export type AppState = State<User, {}> & ExtraState;
+
+        // Replace '{}' with your custom SessionData if needed
+        export const define = createDefineSession<User, {}, ExtraState>();
         
         /** Strictly typed state for authenticated routes (guarantees user presence) */
-        export type AuthState = State<User, {}> & { user: User; userId: string };
+        export type AuthState = AppState & { user: User; userId: string };
         /** Authenticated define helper */
         export const defineAuth = define as Define<AuthState>;`)
     : dedent(`
-        // Replace 'unknown' and '{}' with your User, SessionData and ExtraState types
-        export const define = createDefineSession<unknown, {}, {}>();
+        ${extraStateDefinition}
+
+        /** Global application state */
+        export type AppState = State<unknown, {}> & ExtraState;
+
+        // Replace 'unknown' and '{}' with your User and SessionData types
+        export const define = createDefineSession<unknown, {}, ExtraState>();
         
         /** Strictly typed state for authenticated routes (guarantees user presence) */
-        export type AuthState = State<unknown, {}> & { user: unknown; userId: string };
+        export type AuthState = AppState & { user: unknown; userId: string };
         /** Authenticated define helper */
         export const defineAuth = define as Define<AuthState>;`);
 }
@@ -39,21 +51,25 @@ Deno.test("patchUtilsState - String Generation Logic", async (t) => {
 
   await t.step("should use User type for kvdex presets", () => {
     const output = getExpectedStateInterface(true);
-    expect(output).toContain("createDefineSession<User, {}, {}>()");
-    expect(output).toContain("export type AuthState = State<User, {}>");
-    expect(output).toContain("user: User");
+    expect(output).toContain("createDefineSession<User, {}, ExtraState>()");
     expect(output).toContain(
-      "export const defineAuth = define as Define<AuthState>",
+      "export type AppState = State<User, {}> & ExtraState",
     );
+    expect(output).toContain(
+      "export type AuthState = AppState & { user: User; userId: string }",
+    );
+    expect(output).toContain("user: User");
   });
 
   await t.step("should use unknown for non-kvdex presets", () => {
     const output = getExpectedStateInterface(false);
-    expect(output).toContain("createDefineSession<unknown, {}, {}>()");
-    expect(output).toContain("export type AuthState = State<unknown, {}>");
+    expect(output).toContain("createDefineSession<unknown, {}, ExtraState>()");
+    expect(output).toContain(
+      "export type AppState = State<unknown, {}> & ExtraState",
+    );
     expect(output).toContain("user: unknown");
     expect(output).toContain(
-      "Replace 'unknown' and '{}' with your User, SessionData and ExtraState types",
+      "Replace 'unknown' and '{}' with your User and SessionData types",
     );
   });
 });
