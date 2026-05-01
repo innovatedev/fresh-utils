@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.2
+
+- **Kvdex Store**: Added `upsert` support and `expireIn` option for session storage.
+
 ## 0.5.1
 
 - **Testing**: Added a robust E2E integration test suite

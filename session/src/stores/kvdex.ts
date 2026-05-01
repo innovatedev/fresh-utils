@@ -174,7 +174,7 @@ export class KvDexSessionStorage<
    * @param payload The session data to store.
    */
   async set(sessionId: string, payload: TSessionData): Promise<void> {
-    // Check if session exists to preserve createdAt
+    // Check if session exists to preserve createdAt and manage indices
     const existing = await this.#collection.find(
       // deno-lint-ignore no-explicit-any
       sessionId as unknown as ParseId<any>,
@@ -185,6 +185,7 @@ export class KvDexSessionStorage<
     const existingVal = existing?.value as
       | Partial<SessionDoc<TSessionData>>
       | undefined;
+
     const createdAt = existingVal?.createdAt ?? now;
     const expiresAt = this.#expireAfter
       ? new Date(now.getTime() + this.#expireAfter * 1000)
@@ -192,30 +193,37 @@ export class KvDexSessionStorage<
 
     // Construct the full document matching SessionDoc structure
     const doc: SessionDoc<TSessionData> = {
-      id: sessionId,
       createdAt,
       updatedAt: now,
       expiresAt,
       data: payload,
     };
 
-    // Fix for primary index collision AND update merging issues:
-    // We use set() with overwrite: true to ensure full replacement (clearing flash messages).
-    // We EXCLUDE 'id' from the stored value to prevent duplicate primary key errors if 'id' is indexed.
-    // The 'id' is already the KV Key, so it is redundant in the value for lookup purposes.
-    const { id: _id, ...safeDoc } = doc;
-
-    const result = await this.#collection.set(
-      // deno-lint-ignore no-explicit-any
-      sessionId as unknown as ParseId<any>,
-      // deno-lint-ignore no-explicit-any
-      safeDoc as any,
-      {
-        expireIn: this.#expireAfter ? this.#expireAfter * 1000 : undefined,
-        overwrite: true,
+    let result;
+    if (existing) {
+      // Use update() to ensure kvdex cleans up old secondary indices (like expiresAt)
+      result = await this.#collection.update(
         // deno-lint-ignore no-explicit-any
-      } as any,
-    );
+        sessionId as unknown as ParseId<any>,
+        doc as any,
+        {
+          strategy: "replace",
+          expireIn: this.#expireAfter ? this.#expireAfter * 1000 : undefined,
+        } as any,
+      );
+    } else {
+      // For new sessions, use set()
+      result = await this.#collection.set(
+        // deno-lint-ignore no-explicit-any
+        sessionId as unknown as ParseId<any>,
+        doc as any,
+        {
+          expireIn: this.#expireAfter ? this.#expireAfter * 1000 : undefined,
+          overwrite: true,
+          // deno-lint-ignore no-explicit-any
+        } as any,
+      );
+    }
 
     if (!result.ok) {
       throw new Error(`Failed to set session ${sessionId}`);
