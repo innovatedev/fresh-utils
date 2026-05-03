@@ -1,6 +1,6 @@
 # @innovatedev/fresh-session
 
-![jsr:@innovatedev/fresh-session](https://jsr.io/badges/@innovatedev/fresh-session)
+[![jsr:@innovatedev/fresh-session](https://jsr.io/badges/@innovatedev/fresh-session)](https://jsr.io/@innovatedev/fresh-session)
 
 A flexible, secure session middleware for [Deno Fresh](https://fresh.deno.dev/)
 (v2+).

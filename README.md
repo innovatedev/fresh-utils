@@ -12,7 +12,7 @@ Collection of utilities and plugins for [Deno Fresh](https://fresh.deno.dev/)
 **[@innovatedev/fresh-session](./session)** : Flexible session middleware with
 Memory and KV support, and a CLI initialization tool.
 
-![jsr:@innovatedev/fresh-session](https://jsr.io/badges/@innovatedev/fresh-session)
+[![jsr:@innovatedev/fresh-session](https://jsr.io/badges/@innovatedev/fresh-session)](https://jsr.io/@innovatedev/fresh-session)
 
 ```bash
 deno add jsr:@innovatedev/fresh-session
