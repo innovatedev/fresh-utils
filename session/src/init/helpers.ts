@@ -277,11 +277,6 @@ export async function updateDenoJson(
         config.imports["@olli/kvdex"] = `jsr:@olli/kvdex@${v}`;
         changed = true;
       }
-      if (!config.imports["zod"]) {
-        console.log("Adding zod dependency for schema validation...");
-        config.imports["zod"] = "npm:zod@^3.24.0";
-        changed = true;
-      }
     }
 
     if (changed) {

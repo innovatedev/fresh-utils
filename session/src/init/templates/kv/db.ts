@@ -1,3 +1,4 @@
+/// <reference lib="deno.unstable" />
 import { collection, kvdex } from "@olli/kvdex";
 import { SessionModel, UserModel } from "./models.ts";
 

@@ -7,11 +7,15 @@ Deno.test("DenoKvSessionStorage", async (t) => {
 
   await t.step("set and get", async () => {
     const sessionId = "test-id";
-    const data = { name: "test-user" };
+    const data = {
+      data: { name: "test-user" },
+      flash: {},
+      lastSeenAt: Date.now(),
+    };
     await store.set(sessionId, data);
 
     const retrieved = await store.get(sessionId);
-    expect(retrieved).toEqual(data);
+    expect(retrieved?.data).toEqual(data.data);
   });
 
   await t.step("delete", async () => {

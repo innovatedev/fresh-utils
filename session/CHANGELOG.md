@@ -1,8 +1,20 @@
 # Changelog
 
+## 0.6.0
+
+> [!IMPORTANT]
+> Sessions must be migrated when upgrading to this version. If you don't migrate
+> sessions, you will need to delete all existing sessions.
+
+- Simplified the shape of session documents in Kvdex store.
+- Introduced `sessionModel` for library-agnostic and "raw" kvdex session
+  definitions.
+- Deprecated `sessionSchemaFactory` to resolve Zod versioning conflicts.
+
 ## 0.5.2
 
-- **Kvdex Store**: Added `upsert` support and `expireIn` option for session storage.
+- **Kvdex Store**: Added `upsert` support and `expireIn` option for session
+  storage.
 
 ## 0.5.1
 

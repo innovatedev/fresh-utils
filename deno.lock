@@ -50,10 +50,11 @@
     "npm:@opentelemetry/api@^1.9.0": "1.9.0",
     "npm:@preact/signals@^2.5.0": "2.8.2_preact@10.29.0",
     "npm:@preact/signals@^2.5.1": "2.8.2_preact@10.29.0",
+    "npm:arktype@^2.2.0": "2.2.0",
     "npm:preact-render-to-string@^6.6.3": "6.6.6_preact@10.29.0",
     "npm:preact@^10.27.2": "10.29.0",
     "npm:preact@^10.28.3": "10.29.0",
-    "npm:zod@^3.24.0": "3.25.76"
+    "npm:zod@^4.4.2": "4.4.2"
   },
   "jsr": {
     "@cliffy/ansi@1.0.0-rc.8": {
@@ -219,6 +220,15 @@
     }
   },
   "npm": {
+    "@ark/schema@0.56.0": {
+      "integrity": "sha512-ECg3hox/6Z/nLajxXqNhgPtNdHWC9zNsDyskwO28WinoFEnWow4IsERNz9AnXRhTZJnYIlAJ4uGn3nlLk65vZA==",
+      "dependencies": [
+        "@ark/util"
+      ]
+    },
+    "@ark/util@0.56.0": {
+      "integrity": "sha512-BghfRC8b9pNs3vBoDJhcta0/c1J1rsoS1+HgVUreMFPdhz/CRAKReAu57YEllNaSy98rWAdY1gE+gFup7OXpgA=="
+    },
     "@opentelemetry/api@1.9.0": {
       "integrity": "sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg=="
     },
@@ -232,6 +242,20 @@
         "preact"
       ]
     },
+    "arkregex@0.0.5": {
+      "integrity": "sha512-ncYjBdLlh5/QnVsAA8De16Tc9EqmYM7y/WU9j+236KcyYNUXogpz3sC4ATIZYzzLxwI+0sEOaQLEmLmRleaEXw==",
+      "dependencies": [
+        "@ark/util"
+      ]
+    },
+    "arktype@2.2.0": {
+      "integrity": "sha512-t54MZ7ti5BhOEvzEkgKnWvqj+UbDfWig+DHr5I34xatymPusKLS0lQpNJd8M6DzmIto2QGszHfNKoFIT8tMCZQ==",
+      "dependencies": [
+        "@ark/schema",
+        "@ark/util",
+        "arkregex"
+      ]
+    },
     "preact-render-to-string@6.6.6_preact@10.29.0": {
       "integrity": "sha512-EfqZJytnjJldV+YaaqhthU2oXsEf5e+6rDv957p+zxAvNfFLQOPfvBOTncscQ+akzu6Wrl7s3Pa0LjUQmWJsGQ==",
       "dependencies": [
@@ -241,8 +265,8 @@
     "preact@10.29.0": {
       "integrity": "sha512-wSAGyk2bYR1c7t3SZ3jHcM6xy0lcBcDel6lODcs9ME6Th++Dx2KU+6D3HD8wMMKGA8Wpw7OMd3/4RGzYRpzwRg=="
     },
-    "zod@3.25.76": {
-      "integrity": "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="
+    "zod@4.4.2": {
+      "integrity": "sha512-IynmDyxsEsb9RKzO3J9+4SxXnl2FTFSzNBaKKaMV6tsSk0rw9gYw9gs+JFCq/qk2LCZ78KDwyj+Z289TijSkUw=="
     }
   },
   "remote": {

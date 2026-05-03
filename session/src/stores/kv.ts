@@ -14,7 +14,7 @@
  * const store = new DenoKvSessionStorage(kv);
  * ```
  */
-import type { SessionData, SessionStorage } from "../session.ts";
+import type { SessionStorage, StoredSession } from "../session.ts";
 
 /**
  * Persistent session storage using Deno KV.
@@ -138,16 +138,16 @@ export class DenoKvSessionStorage implements SessionStorage {
   /**
    * Retrieves session data from Deno KV.
    */
-  async get(sessionId: string): Promise<SessionData | undefined> {
+  async get(sessionId: string): Promise<StoredSession | undefined> {
     const kv = await this.kv;
-    const res = await kv.get<SessionData>([...this.prefix, sessionId]);
+    const res = await kv.get<StoredSession>([...this.prefix, sessionId]);
     return res.value || undefined;
   }
 
   /**
    * Stores session data in Deno KV.
    */
-  async set(sessionId: string, data: SessionData): Promise<void> {
+  async set(sessionId: string, data: StoredSession): Promise<void> {
     const kv = await this.kv;
     await kv.set([...this.prefix, sessionId], data, {
       expireIn: this.expireAfter ? this.expireAfter * 1000 : undefined,

@@ -38,7 +38,7 @@ export default define.page( // deno-lint-ignore no-explicit-any
                 class="bg-red-50 border-l-4 border-red-400 p-4 mb-6 rounded-r-md shadow-sm flex items-center"
                 role="alert"
               >
-                <div class="flex-shrink-0">
+                <div class="shrink-0">
                   <svg
                     class="h-5 w-5 text-red-400"
                     xmlns="http://www.w3.org/2000/svg"
@@ -73,11 +73,11 @@ export default define.page( // deno-lint-ignore no-explicit-any
 
             <div class="mt-6">
               <div class="relative flex items-center">
-                <div class="flex-grow border-t border-gray-200"></div>
-                <span class="flex-shrink mx-4 text-gray-400 text-sm font-medium">
+                <div class="grow border-t border-gray-200"></div>
+                <span class="shrink mx-4 text-gray-400 text-sm font-medium">
                   New here?
                 </span>
-                <div class="flex-grow border-t border-gray-200"></div>
+                <div class="grow border-t border-gray-200"></div>
               </div>
 
               <div class="mt-6">

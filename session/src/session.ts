@@ -183,12 +183,18 @@ export interface SessionOptions<UserType = unknown, TData = SessionData> {
 }
 
 /** Internal structure for stored sessions. */
-interface StoredSession<TData = SessionData> {
+export interface StoredSession<TData = SessionData> {
+  /** The user-defined session data. */
   data: TData;
+  /** Internal flash message storage. */
   flash: Record<string, unknown>;
+  /** The unique user identifier (if logged in). */
   userId?: string;
+  /** Captured User-Agent string for validation. */
   ua?: string;
+  /** Captured Client IP address for validation. */
   ip?: string;
+  /** Timestamp of the last user interaction. */
   lastSeenAt: number;
 }
 

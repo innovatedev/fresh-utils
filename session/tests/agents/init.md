@@ -45,7 +45,8 @@ deno run -A ../../session/src/init/mod.ts -y
 **Verification:**
 
 - [ ] `config/session.ts` exists and uses `KvDexSessionStorage`.
-- [ ] `kv/db.ts` and `kv/models.ts` are created.
+- [ ] `kv/db.ts` exists.
+- [ ] `kv/models.ts` exists and uses the `sessionModel()` helper.
 - [ ] `utils.ts` is patched with `AppState` and `defineAuth`.
 - [ ] `main.ts` includes `app.use(session)`.
 - [ ] Authentication routes (`routes/login.tsx`, etc.) are generated.
@@ -81,8 +82,15 @@ subdirectory of a monorepo, you may need `DENO_NO_WORKSPACE=1`.
 
 ### Dependency Integrity
 
-- [ ] `deno.json` should contain `@olli/kvdex` and `zod`.
+- [ ] `deno.json` should contain `@olli/kvdex`.
+- [ ] Runtime validation (Zod/Arktype) is OPTIONAL and developer-selected.
 - [ ] `deno.lock` should be consistent (run `deno install`).
+
+### Data Architecture
+
+- [ ] Verify `kvdex` records are **flattened** (metadata at top-level).
+- [ ] Confirm NO redundant `id` field exists inside the stored record.
+- [ ] Verify `sessionModel()` is used to provide a library-agnostic base.
 
 ## 5. Execution Summary Template
 
