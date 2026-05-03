@@ -1,5 +1,6 @@
 import { expect } from "./deps.ts";
 import { collection, kvdex } from "@olli/kvdex";
+import { createSessionMiddleware } from "../src/session.ts";
 import { KvDexSessionStorage, sessionModel } from "../src/stores/kvdex.ts";
 
 Deno.test("Resilience & Edge Cases", async (t) => {
@@ -16,6 +17,7 @@ Deno.test("Resilience & Edge Cases", async (t) => {
   });
 
   const store = new KvDexSessionStorage({
+    db: db,
     collection: db.sessions,
   });
 
@@ -77,6 +79,7 @@ Deno.test("Resilience & Edge Cases", async (t) => {
     };
 
     const storeWithExplosion = new KvDexSessionStorage({
+      db: db,
       collection: db.sessions,
       // deno-lint-ignore no-explicit-any
       dataValidator: throwingValidator as any,
@@ -97,6 +100,51 @@ Deno.test("Resilience & Edge Cases", async (t) => {
     // Getting the session should return undefined because the validator crashed
     const retrieved = await storeWithExplosion.get(sessionId);
     expect(retrieved).toBeUndefined();
+  });
+
+  await t.step("Middleware: Handle store.set failure gracefully", async () => {
+    const sessionId = "set-fail-session";
+    const storage: any = {
+      get: () => ({
+        data: { count: 1 },
+        flash: {},
+        lastSeenAt: Date.now(),
+        createdAt: Date.now(),
+        version: "v1",
+      }),
+      set: () => {
+        throw new Error("Store Write Failed");
+      },
+      delete: () => {},
+    };
+
+    const middleware = createSessionMiddleware({ store: storage });
+
+    const errors: string[] = [];
+    const originalError = console.error;
+    console.error = (msg: string) => errors.push(msg);
+
+    const ctx: any = {
+      req: { headers: new Headers({ cookie: `sessionId=${sessionId}` }) },
+      info: { remoteAddr: { hostname: "127.0.0.1" } },
+      state: {},
+      next: () => {
+        ctx.state.session.count = 2;
+        return new Response("OK");
+      },
+    };
+
+    const response = await middleware(ctx);
+
+    console.error = originalError;
+
+    // Verify request completed successfully despite store failure
+    expect(response.status).toBe(200);
+    const body = await response.text();
+    expect(body).toBe("OK");
+
+    // Verify error was logged
+    expect(errors.some((e) => e.includes("Store set error"))).toBe(true);
   });
 
   kv.close();

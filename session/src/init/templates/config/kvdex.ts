@@ -8,6 +8,7 @@ import type { State } from "../utils.ts";
 
 export const sessionConfig: SessionOptions = {
   store: new KvDexSessionStorage({
+    db: db,
     collection: db.sessions,
     userCollection: db.users,
     expireAfter: 60 * 60 * 24 * 7, // 1 week

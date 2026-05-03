@@ -23,6 +23,7 @@ Deno.test("KvDexSessionStorage", async (t) => {
   });
 
   const store = new KvDexSessionStorage({
+    db: db,
     collection: db.sessions,
     userCollection: db.users,
   });
@@ -95,6 +96,7 @@ Deno.test("KvDexSessionStorage", async (t) => {
 
   await t.step("resolveUser (secondary/primary index mapping)", async () => {
     const storeWithIndex = new KvDexSessionStorage({
+      db: db,
       collection: db.sessions,
       userCollection: db.users,
       userIndex: "realId",

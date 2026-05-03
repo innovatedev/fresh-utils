@@ -13,6 +13,7 @@ Deno.test("KvDexSessionStorage - Flash Message Persistence", async (_t) => {
   });
 
   const store = new KvDexSessionStorage({
+    db: db,
     collection: db.sessions,
     userCollection: db.users,
   });

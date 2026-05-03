@@ -173,6 +173,41 @@ export const handler = define.handlers({
 });
 ```
 
+## Known Limitations
+
+### Concurrency Model (Optimistic Locking)
+
+Version 0.6.0 uses **Optimistic Concurrency Control (OCC)**. This means:
+
+- **Conflict Detection**: Concurrent updates to the same session are detected.
+- **Resolution Path**: The middleware follows a "First-Write-Wins" strategy. If
+  a conflict is detected, the second write is dropped, and a warning is logged.
+  It does **not** automatically retry the request.
+- **Data Integrity**: This prevents accidental overwrites (last-write-wins) but
+  may result in lost changes for the "losing" request.
+
+### Store Limitations
+
+- **MemorySessionStorage**: Is **not safe** for multi-process deployments (e.g.,
+  Deno Deploy with multiple isolates, or load-balanced containers). It should
+  only be used for local development or single-isolate testing.
+- **DenoKvSessionStorage (Standard)**: Uses basic Deno KV atomicity. While
+  reliable, it lacks the secondary indexing and structured schema features of
+  `KvDexSessionStorage`.
+- **KvDexSessionStorage**: Requires the `db` instance to be passed in the
+  options to enable atomic updates and optimistic locking. If omitted, it falls
+  back to non-atomic writes (last-write-wins) and logs a warning.
+
+### Error Resilience
+
+The middleware follows a **Fail-Closed** security model for session retrieval:
+
+- If the storage backend fails during a `get()` call, the session is treated as
+  invalid, and the user is effectively logged out for that request.
+- If the storage backend fails during a `set()` call, changes to the session
+  (including flash messages) are lost, but the request continues to prevent a
+  total application crash.
+
 ## Security Issues
 
 Report any security related issues to security@innovate.dev

@@ -189,7 +189,7 @@ export interface KvDexSessionStorageOptions<
    * Required for atomic updates and optimistic locking.
    */
   // deno-lint-ignore no-explicit-any
-  db?: any;
+  db: any;
 
   /** The kvdex collection for users. Optional. */
   // deno-lint-ignore no-explicit-any
@@ -259,6 +259,11 @@ export class KvDexSessionStorage<
   constructor(
     options: KvDexSessionStorageOptions<TSessionData, TUser>,
   ) {
+    if (!options.db) {
+      throw new Error(
+        "KvDexSessionStorage requires 'db' option to be provided for atomic operations and optimistic locking.",
+      );
+    }
     this.#collection = options.collection;
     this.#db = options.db;
     this.#userCollection = options.userCollection;
@@ -398,43 +403,27 @@ export class KvDexSessionStorage<
 
     const expireIn = this.#expireAfter ? this.#expireAfter * 1000 : undefined;
 
-    let res;
-    if (this.#db && typeof this.#db.atomic === "function") {
-      // Use db.atomic for full optimistic locking support
-      // deno-lint-ignore no-explicit-any
-      const atomic = this.#db.atomic((schema: any) => {
-        // We find the collection key by matching it in the schema
-        for (const [key, col] of Object.entries(schema)) {
-          if (col === this.#collection) return schema[key];
-        }
-        // Fallback: This might fail if schema is nested or not matching
-        // deno-lint-ignore no-explicit-any
-        return (schema as any).sessions ||
-          // deno-lint-ignore no-explicit-any
-          (schema as any)[Object.keys(schema)[0]];
-      });
-
-      if (version) {
-        atomic.check({ id, versionstamp: version });
+    // deno-lint-ignore no-explicit-any
+    const atomic = this.#db.atomic((schema: any) => {
+      // We find the collection key by matching it in the schema
+      for (const [key, col] of Object.entries(schema)) {
+        if (col === this.#collection) return schema[key];
       }
-
-      res = await atomic
-        // deno-lint-ignore no-explicit-any
-        .set(id, doc as any, { expireIn, overwrite: true })
-        .commit();
-    } else {
-      // Fallback to collection.set (no version check support)
-      if (version) {
-        console.warn(
-          "[session] Kvdex store: Atomic check requested but 'db' not provided in options. Falling back to non-atomic set.",
-        );
-      }
+      // Fallback: This might fail if schema is nested or not matching
       // deno-lint-ignore no-explicit-any
-      res = await this.#collection.set(id, doc as any, {
-        expireIn,
-        overwrite: true,
-      });
+      return (schema as any).sessions ||
+        // deno-lint-ignore no-explicit-any
+        (schema as any)[Object.keys(schema)[0]];
+    });
+
+    if (version) {
+      atomic.check({ id, versionstamp: version });
     }
+
+    const res = await atomic
+      // deno-lint-ignore no-explicit-any
+      .set(id, doc as any, { expireIn, overwrite: true })
+      .commit();
 
     return { ok: res.ok };
   }

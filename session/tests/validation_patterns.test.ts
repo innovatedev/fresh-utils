@@ -29,6 +29,7 @@ Deno.test("Recommended Validation Patterns", async (t) => {
     // We use any for the store in tests to verify the wrapped structure easily
     // deno-lint-ignore no-explicit-any
     const store: any = new KvDexSessionStorage({
+      db: db,
       collection: db.sessions,
     });
 
@@ -78,6 +79,7 @@ Deno.test("Recommended Validation Patterns", async (t) => {
 
     // deno-lint-ignore no-explicit-any
     const store: any = new KvDexSessionStorage({
+      db: db,
       collection: db.zod_sessions,
     });
 
