@@ -1,13 +1,13 @@
 # @innovatedev/fresh-session
 
+![jsr:@innovatedev/fresh-session](https://jsr.io/badges/@innovatedev/fresh-session)
+
 A flexible, secure session middleware for [Deno Fresh](https://fresh.deno.dev/)
 (v2+).
 
 ## AI Transparency
 
-⚠️ This project is primarily AI-assisted (Antigravity, Copilot, Cursor, Gemini,
-ChatGPT, Composer, Claude, Grok); all code is directed, reviewed, and tested by
-humans.
+⚠️ AI-assisted development, human-directed and reviewed.
 
 ## Features
 
@@ -16,8 +16,12 @@ humans.
   and `KvDexSessionStorage`.
 - **Atomic Concurrency**: Built-in Optimistic Locking to prevent data loss
   during concurrent requests.
+- **Atomic Retry**: `session.update()` helper for conflict-free mutations with
+  configurable retry strategy.
 - **Lifecycle Events**: Hook into `create`, `refresh`, `destroy`, `rotate`, and
   `expired` events.
+- **Specialized Errors**: Explicit error classes (`SessionConflictError`, etc.)
+  for robust failure handling.
 - **Flash Messages**: Simple temporary data persistence for redirects.
 - **Fresh 2.0 Native**: Built-in `createDefineSession` helper for
   zero-boilerplate setup.
@@ -123,12 +127,91 @@ export const handler = define.handlers({
 
 ### Atomic Concurrency Control
 
-Version 0.6.0 introduces **Optimistic Concurrency Control (OCC)**. When multiple
-requests for the same session overlap, the middleware ensures that they don't
-silently overwrite each other's changes.
+This library uses **Optimistic Concurrency Control (OCC)** to prevent silent
+data loss during overlapping requests. There are two usage patterns depending on
+how much consistency a given mutation requires.
 
-If a collision is detected, a warning is logged:
-`[session] Optimistic locking failure for session XYZ. Concurrent modification detected.`
+#### Direct assignment (most cases)
+
+For low-stakes mutations — setting a preference, storing a theme, toggling a
+flag — direct property assignment is the simplest and recommended approach:
+
+```typescript
+ctx.state.session.theme = "dark";
+```
+
+If two requests collide, the first write wins. The losing write is dropped and a
+warning is logged:
+
+```
+[session] Optimistic locking failure for session XYZ. Concurrent modification detected.
+```
+
+This is acceptable for non-critical state where an occasional lost write has no
+meaningful consequence.
+
+#### `session.update()` (critical mutations)
+
+For mutations where every write matters — incrementing a counter, updating a
+cart, advancing a state machine — use `session.update()`. It performs a
+read-transform-write loop with automatic retry on conflict:
+
+> [!WARNING]
+> **Transform Purity**: The transform function should be a pure function of the
+> session data. Avoid reading external state (DB, APIs) inside the transform, as
+> these reads will not be automatically refreshed on retry, potentially leading
+> to inconsistent results.
+
+> [!NOTE]
+> **Latency Profile**: Each retry attempt involves a network round-trip to the
+> store. Worst-case latency is roughly `(maxRetries + 1) * store_latency`.
+
+```typescript
+export const handler = define.handlers({
+  async POST(ctx) {
+    const result = await ctx.state.session.update(async (data) => {
+      data.cart.push(newItem);
+      return data;
+    }, {
+      maxRetries: 3, // default: 3
+      onExhausted: "warn", // "warn" (default) | "throw"
+    });
+
+    if (result.ok) {
+      return ctx.redirect("/cart");
+    } else {
+      // result.reason: "exhausted" | "store_error" | "not_found"
+      return new Response("Could not update cart. Please try again.", {
+        status: 503,
+      });
+    }
+  },
+});
+```
+
+**How it works:**
+
+1. Reads the current session and versionstamp from the store.
+2. Runs your transform against the freshest data.
+3. Attempts an atomic write with a versionstamp check.
+4. If a conflict is detected, repeats from step 1 up to `maxRetries` times.
+5. Returns a typed result — never silently swallows failures.
+
+**`onExhausted` behavior:**
+
+| Value              | Behavior                                                                                              |
+| :----------------- | :---------------------------------------------------------------------------------------------------- |
+| `"warn"` (default) | Logs a warning and returns `{ ok: false, reason: "exhausted" }`. The caller decides how to handle it. |
+| `"throw"`          | Throws an error. Use when you want unhandled exhaustion to surface as a 500.                          |
+
+> **Note:** `session.update()` only retries within the session/storage layer. It
+> never re-runs your route handler, so side effects (emails, DB writes, etc.) in
+> `ctx.next()` are not repeated.
+
+> **KvDexSessionStorage requirement:** The `db` instance must be passed when
+> constructing `KvDexSessionStorage` for `update()` to use atomic operations. If
+> omitted, `update()` will return `{ ok: false, reason: "store_error" }` and log
+> a warning. See [Store Limitations](#store-limitations).
 
 ### Lifecycle Events
 
@@ -175,38 +258,60 @@ export const handler = define.handlers({
 
 ## Known Limitations
 
-### Concurrency Model (Optimistic Locking)
+### Concurrency Model
 
-Version 0.6.0 uses **Optimistic Concurrency Control (OCC)**. This means:
+This library uses **Optimistic Concurrency Control (OCC)** with two resolution
+paths:
 
-- **Conflict Detection**: Concurrent updates to the same session are detected.
-- **Resolution Path**: The middleware follows a "First-Write-Wins" strategy. If
-  a conflict is detected, the second write is dropped, and a warning is logged.
-  It does **not** automatically retry the request.
-- **Data Integrity**: This prevents accidental overwrites (last-write-wins) but
-  may result in lost changes for the "losing" request.
+- **Direct assignment** follows a **First-Write-Wins** strategy. Conflicts are
+  detected, the losing write is dropped, and a warning is logged. No retry
+  occurs. Suitable for non-critical session state.
+
+- **`session.update()`** follows a **Retry** strategy. On conflict, the
+  transform is re-applied to the freshest session data and re-attempted, up to
+  `maxRetries` times. Suitable for critical mutations. If retries are exhausted,
+  a typed failure result is returned rather than silently losing the write.
+
+Neither path re-runs the route handler. Side effects in your handler are never
+repeated.
 
 ### Store Limitations
 
-- **MemorySessionStorage**: Is **not safe** for multi-process deployments (e.g.,
-  Deno Deploy with multiple isolates, or load-balanced containers). It should
-  only be used for local development or single-isolate testing.
-- **DenoKvSessionStorage (Standard)**: Uses basic Deno KV atomicity. While
-  reliable, it lacks the secondary indexing and structured schema features of
-  `KvDexSessionStorage`.
-- **KvDexSessionStorage**: Requires the `db` instance to be passed in the
-  options to enable atomic updates and optimistic locking. If omitted, it falls
-  back to non-atomic writes (last-write-wins) and logs a warning.
+- **MemorySessionStorage**: Not safe for multi-process deployments (Deno Deploy
+  with multiple isolates, load-balanced containers). Use for local development
+  and single-isolate testing only.
+
+- **DenoKvSessionStorage**: Uses standard Deno KV atomicity. Reliable for most
+  use cases but lacks the secondary indexing and structured schema of
+  `KvDexSessionStorage`. `session.update()` is supported.
+
+- **KvDexSessionStorage**: Requires the `db` instance in the constructor options
+  to enable atomic operations and `session.update()`. Omitting `db` will result
+  in a **hard startup error** to prevent accidental degradation to non-atomic
+  storage in production.
+
+  ```typescript
+  // Correct — atomic operations enabled
+  new KvDexSessionStorage({ collection: db.sessions, db });
+
+  // Incorrect — throws a hard error at startup
+  new KvDexSessionStorage({ collection: db.sessions });
+  ```
 
 ### Error Resilience
 
-The middleware follows a **Fail-Closed** security model for session retrieval:
+The middleware follows a **Fail-Closed** model:
 
-- If the storage backend fails during a `get()` call, the session is treated as
-  invalid, and the user is effectively logged out for that request.
-- If the storage backend fails during a `set()` call, changes to the session
-  (including flash messages) are lost, but the request continues to prevent a
-  total application crash.
+- **`get()` failure**: The session is treated as invalid. The user is
+  effectively logged out for that request.
+- **`set()` failure**: Session changes (including flash messages) are lost. The
+  request completes to prevent a total crash. Conflicts (version mismatches) are
+  logged as `console.warn`. Other storage errors are logged as `console.error`.
+- **`update()` exhaustion**: Returns `{ ok: false, reason: "exhausted" }` or
+  throws, depending on `onExhausted`.
+- **Custom Error Handling**: All stores throw specialized errors
+  (`SessionConflictError`, etc.) which can be caught by developers performing
+  manual store operations.
 
 ## Security Issues
 

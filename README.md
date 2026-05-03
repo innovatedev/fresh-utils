@@ -5,14 +5,18 @@ Collection of utilities and plugins for [Deno Fresh](https://fresh.deno.dev/)
 
 ## AI Transparency
 
-⚠️ This project is primarily AI-assisted (Antigravity, Copilot, Cursor, Gemini,
-ChatGPT, Composer, Claude, Grok); all code is directed, reviewed, and tested by
-humans.
+⚠️ AI-assisted development, human-directed and reviewed.
 
 ## Packages
 
-- **[@innovatedev/fresh-session](./session)**: Flexible session middleware with
-  Memory and KV support, and a CLI initialization tool.
+**[@innovatedev/fresh-session](./session)** : Flexible session middleware with
+Memory and KV support, and a CLI initialization tool.
+
+![jsr:@innovatedev/fresh-session](https://jsr.io/badges/@innovatedev/fresh-session)
+
+```bash
+deno add jsr:@innovatedev/fresh-session
+```
 
 ## Security Issues
 

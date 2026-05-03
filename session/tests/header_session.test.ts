@@ -1,19 +1,12 @@
 import { expect } from "./deps.ts";
-import { getSetCookies } from "@std/http/cookie";
-import { createSessionMiddleware, type SessionData } from "../src/mod.ts";
+import { createSessionMiddleware, type State } from "../src/mod.ts";
 import { MemorySessionStorage } from "../src/stores/memory.ts";
 
 const sessionStore = new MemorySessionStorage();
 
 // Define a test state to avoid 'any'
-interface TestState {
-  session: SessionData;
-  sessionId: string;
-  user?: { id: string; name?: string };
-  flash: (key: string, val?: unknown) => unknown;
-  hasFlash: (key: string) => boolean;
-  login: (uid: string) => Promise<void>;
-  logout: () => Promise<void>;
+interface TestState extends State<any, any> {
+  // session: SessionData & Session<SessionData>; // This is inherited now
 }
 
 const options = {

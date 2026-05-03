@@ -9,7 +9,12 @@ import {
   updateDenoJson,
   writeFile,
 } from "../helpers.ts";
-import { patchAppTsx, patchMainTs, patchUtilsState } from "../patchers.ts";
+import {
+  patchAppTsx,
+  patchButtonComponent,
+  patchMainTs,
+  patchUtilsState,
+} from "../patchers.ts";
 
 // Helper to read template
 async function readTemplate(path: string): Promise<string> {
@@ -663,6 +668,7 @@ export async function initAction(
 
   // 5. Patch _app.tsx
   if (preset !== "none") {
+    await patchButtonComponent();
     await patchAppTsx();
   }
 

@@ -1,11 +1,11 @@
 import { expect } from "./deps.ts";
 import { collection, kvdex, model } from "@olli/kvdex";
 import { KvDexSessionStorage, sessionModel } from "../src/stores/kvdex.ts";
+import { SessionConfigError } from "../src/errors.ts";
 
 Deno.test("KvDexSessionStorage", async (t) => {
   const kv = await Deno.openKv(":memory:");
 
-  // Use the new library-agnostic model
   // deno-lint-ignore no-explicit-any
   const MySessionModel = sessionModel<any>();
   const UserModel = model<{ username: string; realId?: string }>();
@@ -126,12 +126,34 @@ Deno.test("KvDexSessionStorage", async (t) => {
         flash: {},
         lastSeenAt: Date.now(),
         createdAt: Date.now(),
+        // deno-lint-ignore no-explicit-any
       } as any,
     );
 
     await store.delete(sessionId);
     const retrieved = await store.get(sessionId);
     expect(retrieved).toBeUndefined();
+  });
+
+  await t.step("should throw on collection/db mismatch", async () => {
+    const foreignDb = kvdex({
+      kv,
+      schema: {
+        other: collection(model<any>()),
+      },
+    });
+
+    const brokenStore = new KvDexSessionStorage({
+      db: foreignDb,
+      collection: db.sessions, // Collection from the WRONG db
+    });
+
+    await expect(brokenStore.set("test", {
+      data: {},
+      flash: {},
+      lastSeenAt: Date.now(),
+      // deno-lint-ignore no-explicit-any
+    } as any)).rejects.toThrow(SessionConfigError);
   });
 
   kv.close();

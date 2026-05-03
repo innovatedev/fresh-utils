@@ -121,8 +121,8 @@ Deno.test("Resilience & Edge Cases", async (t) => {
     const middleware = createSessionMiddleware({ store: storage });
 
     const errors: string[] = [];
-    const originalError = console.error;
-    console.error = (msg: string) => errors.push(msg);
+    const originalWarn = console.warn;
+    console.warn = (msg: string) => errors.push(msg);
 
     const ctx: any = {
       req: { headers: new Headers({ cookie: `sessionId=${sessionId}` }) },
@@ -136,15 +136,16 @@ Deno.test("Resilience & Edge Cases", async (t) => {
 
     const response = await middleware(ctx);
 
-    console.error = originalError;
+    console.warn = originalWarn;
 
     // Verify request completed successfully despite store failure
     expect(response.status).toBe(200);
     const body = await response.text();
     expect(body).toBe("OK");
 
-    // Verify error was logged
-    expect(errors.some((e) => e.includes("Store set error"))).toBe(true);
+    // Verify warning was logged
+    expect(errors.some((e) => e.includes("Concurrent modification detected")))
+      .toBe(true);
   });
 
   kv.close();

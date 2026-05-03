@@ -3,9 +3,7 @@ import { join } from "@std/path";
 
 export const recommendedReadmeFooter = `## AI Transparency
 
-⚠️ This project is primarily AI-assisted (Antigravity, Copilot, Cursor, Gemini,
-ChatGPT, Composer, Claude, Grok); all code is directed, reviewed, and tested by
-humans.`;
+⚠️ AI-assisted development, human-directed and reviewed.`;
 
 export const securityDisclosure = `## Security Issues
 

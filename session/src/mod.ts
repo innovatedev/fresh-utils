@@ -7,4 +7,5 @@
  * for handling server-side sessions in Fresh.
  */
 export * from "./session.ts";
+export * from "./errors.ts";
 export * from "./define.ts";

@@ -13,6 +13,7 @@
  * ```
  */
 import type { SessionData, SessionStorage, StoredSession } from "../session.ts";
+import { SessionConflictError } from "../errors.ts";
 
 /**
  * In-memory session storage.
@@ -44,18 +45,17 @@ export class MemorySessionStorage implements SessionStorage {
     sessionId: string,
     data: unknown,
     version?: string,
-  ): { ok: boolean } {
+  ): void {
     const existing = this.#store.get(sessionId);
 
     if (existing && version !== undefined) {
       if (existing.version.toString() !== version) {
-        return { ok: false };
+        throw new SessionConflictError();
       }
     }
 
     const nextVersion = existing ? existing.version + 1 : 1;
     this.#store.set(sessionId, { data, version: nextVersion });
-    return { ok: true };
   }
 
   /**

@@ -1,5 +1,76 @@
 # Changelog
 
+## Versions
+
+- [0.7.0](#070)
+- [0.6.0](#060)
+- [0.5.2](#052)
+- [0.5.1](#051)
+- [0.5.0](#050)
+- [0.4.20](#0420)
+- [0.4.19](#0419)
+- [0.4.18](#0418)
+- [0.4.17](#0417)
+- [0.4.16](#0416)
+- [0.4.15](#0415)
+- [0.4.14](#0414)
+- [0.4.13](#0413)
+- [0.4.12](#0412)
+- [0.4.11](#0411)
+- [0.4.10](#0410)
+- [0.4.9](#049)
+- [0.4.8](#048)
+- [0.4.7](#047)
+- [0.4.6](#046)
+- [0.4.5](#045)
+- [0.4.4](#044)
+- [0.4.3](#043)
+- [0.4.2](#042)
+- [0.4.1](#041)
+- [0.4.0](#040)
+- [0.3.9](#039)
+- [0.3.8](#038)
+- [0.3.7](#037)
+- [0.3.6](#036)
+- [0.3.5](#035)
+- [0.3.4](#034)
+- [0.3.3](#033)
+- [0.3.0](#030)
+- [0.2.0](#020)
+
+## 0.7.0
+
+- **Technical Hardening**: Conducted a deep-dive audit and refactor of the
+  storage and concurrency layer to ensure production-grade reliability.
+- **Strict Storage API**: Refactored the `SessionStorage` interface to use a
+  strict `void | Promise<void>` return type. Stores now throw specialized
+  exceptions instead of returning ambiguous status objects.
+- **Specialized Error Classes**: Introduced `SessionConflictError`,
+  `SessionConfigError`, and `SessionValidationError` to provide developers with
+  precise control over failure handling.
+- **Atomic Retry Loop**: Fixed a critical bug in the middleware's atomic retry
+  logic where store failures were being ignored. The retry loop now correctly
+  detects conflicts and performs jittered retries.
+- **Safe Fallbacks**: Removed all "guessing" and "duck-typing" logic from the
+  storage backends. Configuration mismatches (like kvdex collection/db
+  mismatches) now result in clear, immediate errors.
+- **Atomic Retry**: Added `session.update()` helper for safe, concurrent session
+  mutations with automatic retry on conflicts.
+- **Middleware Hardening**: Resolved a version conflict bug where `update()`
+  mutations were being overwritten or blocked by the middleware's final save.
+- **Export Consolidation**: Consolidated the redundant `/define` sub-path into
+  the root export for a cleaner API.
+- **Breaking**: `KvDexSessionStorage` now requires the `db` instance at
+  construction to ensure atomic integrity and support `update()`.
+- **Init**: Fixed a type error where generated templates passed `type="submit"`
+  to the `Button` component; initialization now automatically patches
+  `components/Button.tsx` for full attribute support.
+- **Deps**: Updated to `@olli/kvdex@3.6.6`.
+- **Docs**: Added comprehensive documentation for the Concurrency Model, Store
+  Limitations, and Error Resilience.
+- **Docs**: Added guidance on `update()` transform purity and latency
+  expectations.
+
 ## 0.6.0
 
 > [!IMPORTANT]
@@ -7,29 +78,19 @@
 > sessions, you will need to delete all existing sessions.
 
 - **Security Hardening**: Implemented server-side **absolute session expiry**
-  enforcement.
-- **Security Hardening**: Upgraded to **128-bit hex session IDs** (16 random
-  bytes) for increased entropy.
-- **Fix**: Improved `init` script to correctly patch `main.ts` with `AppState`
-  for zero-error type inference.
-- **Fix**: Resolved forced session save during rotation to prevent data loss.
-- **Resilience**: Added error handling and logging for store failures to prevent
+  enforcement and upgraded to **128-bit session IDs**.
+- **Atomic Concurrency**: Introduced **Optimistic Concurrency Control (OCC)** to
+  prevent session data loss from race conditions.
+- **Observability**: Added `onEvent` lifecycle hooks (`create`, `refresh`,
+  `rotate`, `destroy`, `expired`).
+- **Fix**: Improved `init` script reliability and resolved a data loss edge case
+  during session rotation.
+- **Resilience**: Enhanced error handling for storage failures to prevent
   middleware crashes.
-- **Observability**: Added `onEvent` lifecycle hooks for `create`, `refresh`,
-  `rotate`, `destroy`, and `expired`.
-- **Kvdex Store**: Simplified the shape of session documents and added
-  `createdAt` tracking.
-- **Kvdex Store**: Introduced `sessionModel` for library-agnostic and "raw"
-  kvdex session definitions.
-- **Deprecation**: Deprecated `sessionSchemaFactory` to resolve Zod versioning
-  conflicts.
-- **Atomic Concurrency**: Implemented **Optimistic Concurrency Control (OCC)**
-  using `versionstamp` logic to prevent session data loss from race conditions.
-- **Kvdex Store**: Added support for atomic `check` operations. Note: Requires
-  passing the `db` instance in `KvDexSessionStorageOptions` for full OCC
-  support.
-- **Testing**: Added a comprehensive security and performance test suite
-  (`security_perf.test.ts`), including concurrency collision validation.
+- **Kvdex Store**: Refactored session documents and introduced library-agnostic
+  `sessionModel`.
+- **Deprecation**: Deprecated `sessionSchemaFactory` to resolve schema library
+  versioning conflicts.
 
 ## 0.5.2
 
@@ -235,9 +296,6 @@
 
 - **Init**: Fixed `deno.json` import alias for `fresh-session` to use `npm:`
   specifier.
-
-## 0.4.1
-
 - **Refactored `init` Command**: Split monolithic `init.ts` into modular
   `helpers.ts` and `patchers.ts` for better maintainability.
 - **Configurable Auth Route Prefix**: Added support for custom auth routes

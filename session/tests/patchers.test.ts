@@ -4,8 +4,8 @@ import { dedent } from "../src/init/helpers.ts";
 // We'll test the string generation logic directly
 function getExpectedImports(isKvdex: boolean) {
   return isKvdex
-    ? 'import { createDefineSession, type Define } from "@innovatedev/fresh-session/define";\nimport type { State } from "@innovatedev/fresh-session";\nexport type { State };\nimport type { User } from "./kv/models.ts";'
-    : 'import { createDefineSession, type Define } from "@innovatedev/fresh-session/define";\nimport type { State } from "@innovatedev/fresh-session";\nexport type { State };';
+    ? 'import { createDefineSession, type Define, type State } from "@innovatedev/fresh-session";\nexport type { State };\nimport type { User } from "./kv/models.ts";'
+    : 'import { createDefineSession, type Define, type State } from "@innovatedev/fresh-session";\nexport type { State };';
 }
 
 function getExpectedStateInterface(isKvdex: boolean) {
@@ -44,7 +44,7 @@ Deno.test("patchUtilsState - String Generation Logic", async (t) => {
   await t.step("should generate correct imports", () => {
     const output = getExpectedImports(true);
     expect(output).toContain(
-      'import { createDefineSession, type Define } from "@innovatedev/fresh-session/define"',
+      'import { createDefineSession, type Define, type State } from "@innovatedev/fresh-session"',
     );
     expect(output).toContain('import type { User } from "./kv/models.ts"');
   });

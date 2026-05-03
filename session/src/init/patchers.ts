@@ -11,7 +11,7 @@ export function printStateExample(isKvdex = false) {
   const defineArgs = isKvdex ? "<User>" : "<User>";
 
   console.log(
-    `\nPlease update your define object in utils.ts to use the session helper:\n\n  import { createDefineSession } from "@innovatedev/fresh-session/define";${userImport}\n${userDefinition}\n\n  export const define = createDefineSession${defineArgs}();\n`,
+    `\nPlease update your define object in utils.ts to use the session helper:\n\n  import { createDefineSession } from "@innovatedev/fresh-session";${userImport}\n${userDefinition}\n\n  export const define = createDefineSession${defineArgs}();\n`,
   );
 }
 
@@ -41,8 +41,8 @@ export async function patchUtilsState(
       }
 
       const sessionImports = isKvdex
-        ? 'import { createDefineSession, type Define } from "@innovatedev/fresh-session/define";\nimport type { State } from "@innovatedev/fresh-session";\nexport type { State };\nimport type { User } from "./kv/models.ts";'
-        : 'import { createDefineSession, type Define } from "@innovatedev/fresh-session/define";\nimport type { State } from "@innovatedev/fresh-session";\nexport type { State };';
+        ? 'import { createDefineSession, type Define, type State } from "@innovatedev/fresh-session";\nexport type { State };\nimport type { User } from "./kv/models.ts";'
+        : 'import { createDefineSession, type Define, type State } from "@innovatedev/fresh-session";\nexport type { State };';
 
       // 1. Extract existing State properties
       const stateMatch = content.match(/export interface State \{([\s\S]*?)\}/);
@@ -240,6 +240,43 @@ export async function patchMainTs(isKv = false) {
   } catch (e) {
     if (!(e instanceof Deno.errors.NotFound)) {
       console.error("Error patching main.ts:", e);
+    }
+  }
+}
+
+export async function patchButtonComponent() {
+  const buttonPath = join(getCWD(), "components/Button.tsx");
+  try {
+    const content = await Deno.readTextFile(buttonPath);
+
+    if (
+      content.includes("export interface ButtonProps") &&
+      !content.includes("JSX.IntrinsicElements")
+    ) {
+      let updated = content
+        .replace(
+          'import type { ComponentChildren } from "preact";',
+          'import type { ComponentChildren, JSX } from "preact";',
+        )
+        .replace(
+          "export interface ButtonProps {",
+          'export type ButtonProps = JSX.IntrinsicElements["button"] & {',
+        );
+
+      // Handle class merging if we detect the standard boilerplate
+      if (updated.includes('class="px-2 py-1')) {
+        updated = updated.replace(
+          'class="px-2 py-1 border-gray-500 border-2 rounded-sm bg-white hover:bg-gray-200 transition-colors"',
+          'class={`px-2 py-1 border-gray-500 border-2 rounded-sm bg-white hover:bg-gray-200 transition-colors ${props.class ?? ""}`}',
+        );
+      }
+
+      await Deno.writeTextFile(buttonPath, updated);
+      console.log("Updated components/Button.tsx to support HTML attributes.");
+    }
+  } catch (e) {
+    if (!(e instanceof Deno.errors.NotFound)) {
+      console.error("Error patching components/Button.tsx:", e);
     }
   }
 }

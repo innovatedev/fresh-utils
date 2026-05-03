@@ -22,6 +22,35 @@ export type SessionData = {
 };
 
 /**
+ * Result of a session update operation.
+ */
+export type UpdateResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; reason: "exhausted" | "store_error" | "not_found" };
+
+/**
+ * Interface for the session object in ctx.state.
+ */
+export interface Session<TData = SessionData> {
+  /**
+   * The underlying session data.
+   */
+  readonly data: TData;
+
+  /**
+   * Performs an atomic update on the session data with an automatic retry strategy.
+   * Useful for concurrent mutations (e.g. counters, cart updates).
+   *
+   * @param transform A function that receives the freshest data and returns the updated data.
+   * @param options Configuration for the retry loop.
+   */
+  update<T = TData>(
+    transform: (data: T) => T | Promise<T>,
+    options?: { maxRetries?: number },
+  ): Promise<UpdateResult<T>>;
+}
+
+/**
  * The state object utilized by the session middleware.
  *
  * This augments the standard Fresh state with session-specific properties.
@@ -29,8 +58,8 @@ export type SessionData = {
  * @template UserType The type of the user object resolved by `resolveUser`.
  */
 export type State<UserType = unknown, TData = SessionData> = {
-  /** The session data object. Accessing or modifying this affects only the user-space data. */
-  session: TData;
+  /** The session object. Proxy-wrapped to allow direct property access and methods. */
+  session: TData & Session<TData>;
   /** The unique session identifier. */
   sessionId: string;
   /** The resolved user object (if configured). */
@@ -102,13 +131,13 @@ export interface SessionStorage {
    * @param sessionId The unique session identifier.
    * @param data The session data to store.
    * @param version The version of the session data that was read, for optimistic locking.
-   * @returns A promise that resolves when the save is complete, with an 'ok' status if supported.
+   * @throws Error if the save fails (e.g. version mismatch).
    */
   set(
     sessionId: string,
     data: unknown,
     version?: string,
-  ): Promise<{ ok: boolean } | void> | { ok: boolean } | void;
+  ): Promise<void> | void;
 
   /**
    * Delete a session.
@@ -281,7 +310,8 @@ export function createSessionMiddleware<
         if (user) {
           // Valid API Request
           ctx.state.user = user as unknown as AppState["user"];
-          ctx.state.session = {} as TData; // Stateless
+          // deno-lint-ignore no-explicit-any
+          ctx.state.session = {} as any; // Stateless
           ctx.state.sessionId = generateSessionId(); // Ephemeral
 
           // No-op Flash info
@@ -342,7 +372,8 @@ export function createSessionMiddleware<
       }
       sessionId = generateSessionId();
       ctx.state.sessionId = sessionId;
-      ctx.state.session = {} as TData;
+      // deno-lint-ignore no-explicit-any
+      ctx.state.session = {} as any;
       storedSession = {
         data: {} as TData,
         flash: {},
@@ -436,9 +467,75 @@ export function createSessionMiddleware<
       });
     };
 
+    // Internal state tracking
+    let sessionData = storedSession.data;
+
+    // Use Proxy to provide direct property access while adding methods
+    // deno-lint-ignore no-explicit-any
+    const sessionObject = new Proxy(sessionData as any, {
+      get(target, prop, receiver) {
+        if (prop === "update") {
+          return async (
+            // deno-lint-ignore no-explicit-any
+            transform: (data: any) => any | Promise<any>,
+            updateOptions?: { maxRetries?: number },
+            // deno-lint-ignore no-explicit-any
+          ): Promise<UpdateResult<any>> => {
+            const maxRetries = updateOptions?.maxRetries ?? 3;
+            let attempts = 0;
+            while (attempts < maxRetries) {
+              try {
+                const current = await options.store.get(sessionId!);
+                if (!current) return { ok: false, reason: "not_found" };
+
+                const newData = await transform(current.data);
+                await options.store.set(
+                  sessionId!,
+                  {
+                    ...current,
+                    data: newData,
+                    lastSeenAt: Date.now(),
+                  },
+                  current.version,
+                );
+
+                // Synchronize local state
+                storedSession.data = newData;
+                sessionData = newData;
+                // Update original state to prevent redundant final save
+                originalData = JSON.stringify(newData);
+                originalLastSeen = Date.now();
+
+                // Update proxy target so subsequent reads see change
+                for (const key in newData) {
+                  target[key] = newData[key];
+                }
+                return { ok: true, data: newData };
+              } catch (error) {
+                attempts++;
+                if (attempts >= maxRetries) {
+                  console.error("[session] Update exhausted retries:", error);
+                  return { ok: false, reason: "exhausted" };
+                }
+                // Optional: small delay between retries
+                await new Promise((r) => setTimeout(r, Math.random() * 50));
+              }
+            }
+            return { ok: false, reason: "exhausted" };
+          };
+        }
+        if (prop === "data") return sessionData;
+        return Reflect.get(target, prop, receiver);
+      },
+      set(target, prop, value, receiver) {
+        return Reflect.set(target, prop, value, receiver);
+      },
+    });
+
     // Populate State
     ctx.state.sessionId = sessionId;
-    ctx.state.session = storedSession.data;
+    // deno-lint-ignore no-explicit-any
+    ctx.state.session = sessionObject as any;
 
     // Implement Flash API
     // We need to track consumed flash messages to remove them on save
@@ -468,7 +565,8 @@ export function createSessionMiddleware<
       await rotateSession();
       storedSession.userId = userId;
       storedSession.data = data || ({} as TData);
-      ctx.state.session = storedSession.data;
+      // deno-lint-ignore no-explicit-any
+      ctx.state.session = storedSession.data as any;
     };
 
     ctx.state.logout = logout;
@@ -496,9 +594,9 @@ export function createSessionMiddleware<
 
     // Save only if dirty (data changed, flash changed, or session is new/rotated)
     // OR if lastSeenAt is old enough to warrant an update (e.g. > 10% of expiry)
-    const originalData = JSON.stringify(storedSession.data);
+    let originalData = JSON.stringify(storedSession.data);
     const originalFlash = JSON.stringify(storedSession.flash);
-    const originalLastSeen = storedSession.lastSeenAt;
+    let originalLastSeen = storedSession.lastSeenAt;
 
     // Helper to cleanup flash messages
     const performFlashCleanup = () => {
@@ -542,17 +640,11 @@ export function createSessionMiddleware<
       if (options.trackIp) storedSession.ip = currentIp;
 
       try {
-        const result = await options.store.set(
+        await options.store.set(
           sessionId,
           storedSession,
           initialVersion,
         );
-
-        if (result && typeof result === "object" && result.ok === false) {
-          console.warn(
-            `[session] Optimistic locking failure for session ${sessionId}. Concurrent modification detected.`,
-          );
-        }
 
         if (isNewSession) {
           options.onEvent?.({
@@ -568,7 +660,10 @@ export function createSessionMiddleware<
           });
         }
       } catch (error) {
-        console.error("[session] Store set error:", error);
+        console.warn(
+          `[session] Optimistic locking failure for session ${sessionId}. Concurrent modification detected.`,
+          error,
+        );
       }
     }
 

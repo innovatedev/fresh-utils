@@ -15,6 +15,7 @@
  * ```
  */
 import type { SessionStorage, StoredSession } from "../session.ts";
+import { SessionConflictError } from "../errors.ts";
 
 /**
  * Persistent session storage using Deno KV.
@@ -157,7 +158,7 @@ export class DenoKvSessionStorage implements SessionStorage {
     sessionId: string,
     data: StoredSession,
     version?: string,
-  ): Promise<{ ok: boolean }> {
+  ): Promise<void> {
     const kv = await this.kv;
     const key = [...this.prefix, sessionId];
     const atomic = kv.atomic();
@@ -172,7 +173,9 @@ export class DenoKvSessionStorage implements SessionStorage {
       })
       .commit();
 
-    return { ok: res.ok };
+    if (!res.ok) {
+      throw new SessionConflictError();
+    }
   }
 
   /**

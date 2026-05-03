@@ -14,6 +14,11 @@
  */
 import type { SessionStorage, StoredSession } from "../session.ts";
 import {
+  SessionConfigError,
+  SessionConflictError,
+  SessionValidationError,
+} from "../errors.ts";
+import {
   type Collection,
   type KvValue,
   model,
@@ -260,7 +265,7 @@ export class KvDexSessionStorage<
     options: KvDexSessionStorageOptions<TSessionData, TUser>,
   ) {
     if (!options.db) {
-      throw new Error(
+      throw new SessionConfigError(
         "KvDexSessionStorage requires 'db' option to be provided for atomic operations and optimistic locking.",
       );
     }
@@ -343,14 +348,14 @@ export class KvDexSessionStorage<
    * @param version The versionstamp of the session being updated.
    */
   async set(
-    sessionId: string,
+    id: string,
     payload: StoredSession<TSessionData>,
     version?: string,
-  ): Promise<{ ok: boolean }> {
+  ): Promise<void> {
     // Check if session exists to preserve createdAt and manage indices
     // deno-lint-ignore no-explicit-any
-    const id = sessionId as unknown as ParseId<any>;
-    const existing = await this.#collection.find(id);
+    const sessionId = id as unknown as ParseId<any>;
+    const existing = await this.#collection.find(sessionId);
 
     const now = new Date();
     // Safe access because we know the shape somewhat, but runtime check remains useful
@@ -373,14 +378,14 @@ export class KvDexSessionStorage<
       if (result instanceof Promise) {
         const resolved = await result;
         if (resolved.issues) {
-          throw new Error(
+          throw new SessionValidationError(
             `Session data validation failed: ${
               resolved.issues.map((i) => i.message).join(", ")
             }`,
           );
         }
       } else if (result.issues) {
-        throw new Error(
+        throw new SessionValidationError(
           `Session data validation failed: ${
             result.issues.map((i) => i.message).join(", ")
           }`,
@@ -409,23 +414,25 @@ export class KvDexSessionStorage<
       for (const [key, col] of Object.entries(schema)) {
         if (col === this.#collection) return schema[key];
       }
-      // Fallback: This might fail if schema is nested or not matching
-      // deno-lint-ignore no-explicit-any
-      return (schema as any).sessions ||
-        // deno-lint-ignore no-explicit-any
-        (schema as any)[Object.keys(schema)[0]];
+      // If we get here, the collection wasn't found in the schema
+      throw new SessionConfigError(
+        "KvDexSessionStorage: The provided collection instance was not found in the kvdex database schema. " +
+          "Ensure you are passing the same 'db' that contains the 'collection'.",
+      );
     });
 
     if (version) {
-      atomic.check({ id, versionstamp: version });
+      atomic.check({ id: sessionId, versionstamp: version });
     }
 
     const res = await atomic
       // deno-lint-ignore no-explicit-any
-      .set(id, doc as any, { expireIn, overwrite: true })
+      .set(sessionId, doc as any, { expireIn, overwrite: true })
       .commit();
 
-    return { ok: res.ok };
+    if (!res.ok) {
+      throw new SessionConflictError();
+    }
   }
 
   /**
@@ -436,12 +443,13 @@ export class KvDexSessionStorage<
 
     let doc;
     if (this.#userIndex) {
-      doc = await this.#userCollection.findBySecondaryIndex(
+      const result = await this.#userCollection.findBySecondaryIndex(
         // deno-lint-ignore no-explicit-any
         this.#userIndex as any,
         // deno-lint-ignore no-explicit-any
         userId as any,
       );
+      doc = result.result[0];
     } else {
       doc = await this.#userCollection.find(
         // deno-lint-ignore no-explicit-any
@@ -451,14 +459,9 @@ export class KvDexSessionStorage<
 
     if (!doc) return undefined;
 
-    // Handle potential PaginationResult
-    // deno-lint-ignore no-explicit-any
-    const validDoc = (doc as any).result ? (doc as any).result[0] : doc;
-    if (!validDoc) return undefined;
-
     // We assume TUser matches doc.value
     // deno-lint-ignore no-explicit-any
-    const value = validDoc.value as any;
+    const value = doc.value as any;
     return value as TUser;
   }
 

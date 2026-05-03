@@ -270,6 +270,10 @@ Deno.test("Correctness: Optimistic Locking Collision", async (t) => {
       },
     };
 
+    // We expect a console.warn during collision
+    const originalWarn = console.warn;
+    console.warn = () => {};
+
     // Run both concurrently
     // Note: Since they are async, they will both perform store.get()
     // before either performs store.set()
@@ -277,6 +281,8 @@ Deno.test("Correctness: Optimistic Locking Collision", async (t) => {
       middleware(ctxA),
       middleware(ctxB),
     ]);
+
+    console.warn = originalWarn;
 
     const finalData = store.get(sessionId);
     // deno-lint-ignore no-explicit-any
