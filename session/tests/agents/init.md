@@ -11,8 +11,9 @@ the Fresh init script is interactive:
 
 ```bash
 # Create a new project named 'test-app'
-deno run -A jsr:@fresh/init ./work/fresh-test-app --tailwind --vscode
-cd ./work/fresh-test-app
+deno run -A jsr:@fresh/init ../../work/fresh-test-app --tailwind --vscode
+# make sure we are out of the repo root to avoid deno workspace issues
+cd ../../work/fresh-test-app
 ```
 
 ## 2. Run Initialization Script
@@ -22,7 +23,7 @@ Run the `init` script from the current workspace or a specific version.
 ### A. From Local Workspace (Development)
 
 ```bash
-deno run -A ../../session/src/init/mod.ts -y
+deno run -A ../../fresh-utils/session/src/init/mod.ts -y
 ```
 
 ### B. From JSR (Release Testing)
@@ -92,7 +93,50 @@ subdirectory of a monorepo, you may need `DENO_NO_WORKSPACE=1`.
 - [ ] Confirm NO redundant `id` field exists inside the stored record.
 - [ ] Verify `sessionModel()` is used to provide a library-agnostic base.
 
-## 5. Execution Summary Template
+## 6. Self-Assessment & Compliance Report
+
+After completing the technical validation, perform a formal evaluation of the
+implementation against the
+[Session Middleware Evaluation Standard](../../evaluation/session-middleware-standards.md).
+
+1. **Grade the implementation**: Use the worksheet in the standards document.
+2. **Generate a JSON report**: Create a file in `evaluations/<date>-v<version>/`
+   named `self-assessment-<timestamp>.json`.
+3. **Naming Convention**: Use ISO-8601-like timestamp in the filename to allow
+   multiple evaluations: `self-assessment-2026-05-03T10-30-00Z.json`.
+
+**JSON Schema:**
+
+```json
+{
+  "version": "x.y.z",
+  "timestamp": "ISO-8601",
+  "score": 0-100,
+  "rating": "Failure/Sub-standard/Acceptable/Exceeds expectations",
+  "evaluator": "Agent Name",
+  "domains": {
+    "security": { "score": 0, "max": 35, "findings": [] },
+    "correctness": { "score": 0, "max": 22, "findings": [] },
+    "performance": { "score": 0, "max": 18, "findings": [] },
+    "dx": { "score": 0, "max": 25, "findings": [] }
+  },
+  "automaticFailureConditions": {
+    "insufficientEntropy": "PASS/FAIL",
+    "noServerSideInvalidation": "PASS/FAIL",
+    "fixationVulnerability": "PASS/FAIL",
+    "plaintextStorage": "PASS/FAIL",
+    "noAbsoluteExpiry": "PASS/FAIL"
+  }
+}
+```
+
+> [!IMPORTANT]
+> If the agent is testing multiple presets or design systems, create a separate
+> JSON report file for each combination. Also make sure all domain values are
+> weighted correctly based on the standards document and total is out of 100
+> (weighted from standards document).
+
+## 7. Execution Summary
 
 When an agent completes validation, it should report:
 
@@ -100,9 +144,9 @@ When an agent completes validation, it should report:
 2. Preset selected (Memory/KV/Kvdex).
 3. Design System detected (Vanilla/DaisyUI).
 4. Results of `deno check` (confirm no inference regressions).
-5. Any manual fixes required (there should be none).
+5. Link to the **Self-Assessment JSON report**.
 
-## 6. Cleanup
+## 8. Cleanup
 
 ```bash
 rm -rf ./work/fresh-test-app

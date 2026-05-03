@@ -35,7 +35,8 @@ Deno.test("Resilience & Edge Cases", async (t) => {
       // thanks to our new guard rails, preventing a crash.
       const retrieved = await store.get(sessionId);
       expect(retrieved).toBeDefined();
-      expect(typeof retrieved?.lastSeenAt).toBe("number");
+      // deno-lint-ignore no-explicit-any
+      expect(typeof (retrieved as any)?.lastSeenAt).toBe("number");
     },
   );
 
@@ -90,6 +91,7 @@ Deno.test("Resilience & Edge Cases", async (t) => {
       updatedAt: new Date(),
       lastSeenAt: new Date(),
       expiresAt: new Date(),
+      // deno-lint-ignore no-explicit-any
     } as any);
 
     // Getting the session should return undefined because the validator crashed

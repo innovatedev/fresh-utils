@@ -184,6 +184,13 @@ export interface KvDexSessionStorageOptions<
   // deno-lint-ignore no-explicit-any
   collection: Collection<any, any, any>;
 
+  /**
+   * The kvdex database instance.
+   * Required for atomic updates and optimistic locking.
+   */
+  // deno-lint-ignore no-explicit-any
+  db?: any;
+
   /** The kvdex collection for users. Optional. */
   // deno-lint-ignore no-explicit-any
   userCollection?: Collection<any, any, any>;
@@ -236,6 +243,8 @@ export class KvDexSessionStorage<
   // deno-lint-ignore no-explicit-any
   #collection: Collection<any, any, any>;
   // deno-lint-ignore no-explicit-any
+  #db?: any;
+  // deno-lint-ignore no-explicit-any
   #userCollection?: Collection<any, any, any>;
   #expireAfter?: number;
   #userIndex?: string;
@@ -251,6 +260,7 @@ export class KvDexSessionStorage<
     options: KvDexSessionStorageOptions<TSessionData, TUser>,
   ) {
     this.#collection = options.collection;
+    this.#db = options.db;
     this.#userCollection = options.userCollection;
     this.#expireAfter = options.expireAfter;
     this.#userIndex = options.userIndex;
@@ -258,11 +268,11 @@ export class KvDexSessionStorage<
   }
 
   /**
-   * Retrieves session data from the kvdex collection.
+   * Retrieves session data from the kvdex collection with version tracking.
    */
   async get(
     sessionId: string,
-  ): Promise<StoredSession<TSessionData> | undefined> {
+  ): Promise<StoredSession<TSessionData> & { version: string } | undefined> {
     // We cast sessionId to ParseId because SessionStorage enforces string IDs
     const doc = await this.#collection.find(
       // deno-lint-ignore no-explicit-any
@@ -282,6 +292,9 @@ export class KvDexSessionStorage<
       lastSeenAt: val.lastSeenAt instanceof Date
         ? val.lastSeenAt.getTime()
         : (typeof val.lastSeenAt === "number" ? val.lastSeenAt : Date.now()),
+      createdAt: val.createdAt instanceof Date
+        ? val.createdAt.getTime()
+        : (typeof val.createdAt === "number" ? val.createdAt : Date.now()),
       ua: val.ua,
       ip: val.ip,
     };
@@ -311,24 +324,28 @@ export class KvDexSessionStorage<
       }
     }
 
-    return stored;
+    return {
+      ...stored,
+      version: doc.versionstamp,
+    };
   }
 
   /**
-   * Stores session data in the kvdex collection.
+   * Stores session data in the kvdex collection with optimistic locking.
    *
    * @param sessionId The unique session identifier.
    * @param payload The wrapped session payload from the middleware.
+   * @param version The versionstamp of the session being updated.
    */
   async set(
     sessionId: string,
     payload: StoredSession<TSessionData>,
-  ): Promise<void> {
+    version?: string,
+  ): Promise<{ ok: boolean }> {
     // Check if session exists to preserve createdAt and manage indices
-    const existing = await this.#collection.find(
-      // deno-lint-ignore no-explicit-any
-      sessionId as unknown as ParseId<any>,
-    );
+    // deno-lint-ignore no-explicit-any
+    const id = sessionId as unknown as ParseId<any>;
+    const existing = await this.#collection.find(id);
 
     const now = new Date();
     // Safe access because we know the shape somewhat, but runtime check remains useful
@@ -379,38 +396,47 @@ export class KvDexSessionStorage<
       ip: p.ip,
     };
 
-    let result;
-    if (existing) {
-      // Use update() to ensure kvdex cleans up old secondary indices (like expiresAt)
-      result = await this.#collection.update(
+    const expireIn = this.#expireAfter ? this.#expireAfter * 1000 : undefined;
+
+    let res;
+    if (this.#db && typeof this.#db.atomic === "function") {
+      // Use db.atomic for full optimistic locking support
+      // deno-lint-ignore no-explicit-any
+      const atomic = this.#db.atomic((schema: any) => {
+        // We find the collection key by matching it in the schema
+        for (const [key, col] of Object.entries(schema)) {
+          if (col === this.#collection) return schema[key];
+        }
+        // Fallback: This might fail if schema is nested or not matching
         // deno-lint-ignore no-explicit-any
-        sessionId as unknown as ParseId<any>,
-        // deno-lint-ignore no-explicit-any
-        doc as any,
-        {
-          strategy: "replace",
-          expireIn: this.#expireAfter ? this.#expireAfter * 1000 : undefined,
+        return (schema as any).sessions ||
           // deno-lint-ignore no-explicit-any
-        } as any,
-      );
+          (schema as any)[Object.keys(schema)[0]];
+      });
+
+      if (version) {
+        atomic.check({ id, versionstamp: version });
+      }
+
+      res = await atomic
+        // deno-lint-ignore no-explicit-any
+        .set(id, doc as any, { expireIn, overwrite: true })
+        .commit();
     } else {
-      // For new sessions, use set()
-      result = await this.#collection.set(
-        // deno-lint-ignore no-explicit-any
-        sessionId as unknown as ParseId<any>,
-        // deno-lint-ignore no-explicit-any
-        doc as any,
-        {
-          expireIn: this.#expireAfter ? this.#expireAfter * 1000 : undefined,
-          overwrite: true,
-          // deno-lint-ignore no-explicit-any
-        } as any,
-      );
+      // Fallback to collection.set (no version check support)
+      if (version) {
+        console.warn(
+          "[session] Kvdex store: Atomic check requested but 'db' not provided in options. Falling back to non-atomic set.",
+        );
+      }
+      // deno-lint-ignore no-explicit-any
+      res = await this.#collection.set(id, doc as any, {
+        expireIn,
+        overwrite: true,
+      });
     }
 
-    if (!result.ok) {
-      throw new Error(`Failed to set session ${sessionId}`);
-    }
+    return { ok: res.ok };
   }
 
   /**

@@ -11,6 +11,7 @@ export const sessionConfig: SessionOptions = {
     expireAfter: 60 * 60 * 24 * 7, // 1 week
     // userKeyPrefix: ["users"], // Uncomment to enable automatic user resolution
   }),
+  // {{TRACKING_OPTIONS}}
   cookie: {
     name: "sessionId",
     httpOnly: true,

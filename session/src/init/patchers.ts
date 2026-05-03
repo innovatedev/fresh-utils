@@ -213,6 +213,27 @@ export async function patchMainTs(isKv = false) {
       console.log("Middleware usage already exists in main.ts");
     }
 
+    // 3. Fix App Type Inference
+    if (
+      content.includes("<State>()") || content.includes('from "./utils.ts"')
+    ) {
+      const original = content;
+      content = content
+        .replace(
+          /import\s*\{\s*([^}]*?)\bState\b([^}]*?)\s*\}\s*from\s*"\.\/utils\.ts";/,
+          'import { $1AppState$2 } from "./utils.ts";',
+        )
+        .replace(
+          /new App<State>\(\)/,
+          "new App<AppState>()",
+        );
+
+      if (content !== original) {
+        console.log("Updated main.ts to use AppState for better type safety.");
+        patched = true;
+      }
+    }
+
     if (patched) {
       await Deno.writeTextFile(mainTsPath, content);
     }

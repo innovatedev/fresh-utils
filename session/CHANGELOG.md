@@ -6,10 +6,30 @@
 > Sessions must be migrated when upgrading to this version. If you don't migrate
 > sessions, you will need to delete all existing sessions.
 
-- Simplified the shape of session documents in Kvdex store.
-- Introduced `sessionModel` for library-agnostic and "raw" kvdex session
-  definitions.
-- Deprecated `sessionSchemaFactory` to resolve Zod versioning conflicts.
+- **Security Hardening**: Implemented server-side **absolute session expiry**
+  enforcement.
+- **Security Hardening**: Upgraded to **128-bit hex session IDs** (16 random
+  bytes) for increased entropy.
+- **Fix**: Improved `init` script to correctly patch `main.ts` with `AppState`
+  for zero-error type inference.
+- **Fix**: Resolved forced session save during rotation to prevent data loss.
+- **Resilience**: Added error handling and logging for store failures to prevent
+  middleware crashes.
+- **Observability**: Added `onEvent` lifecycle hooks for `create`, `refresh`,
+  `rotate`, `destroy`, and `expired`.
+- **Kvdex Store**: Simplified the shape of session documents and added
+  `createdAt` tracking.
+- **Kvdex Store**: Introduced `sessionModel` for library-agnostic and "raw"
+  kvdex session definitions.
+- **Deprecation**: Deprecated `sessionSchemaFactory` to resolve Zod versioning
+  conflicts.
+- **Atomic Concurrency**: Implemented **Optimistic Concurrency Control (OCC)**
+  using `versionstamp` logic to prevent session data loss from race conditions.
+- **Kvdex Store**: Added support for atomic `check` operations. Note: Requires
+  passing the `db` instance in `KvDexSessionStorageOptions` for full OCC
+  support.
+- **Testing**: Added a comprehensive security and performance test suite
+  (`security_perf.test.ts`), including concurrency collision validation.
 
 ## 0.5.2
 

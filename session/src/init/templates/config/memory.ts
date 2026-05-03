@@ -7,6 +7,7 @@ import type { State } from "../utils.ts";
 
 export const sessionConfig: SessionOptions = {
   store: new MemorySessionStorage(),
+  // {{TRACKING_OPTIONS}}
   cookie: {
     name: "sessionId",
     httpOnly: true,

@@ -12,9 +12,8 @@
     "jsr:@denosaurs/plug@^1.1.0": "1.1.0",
     "jsr:@felix/argon2@^3.0.2": "3.0.5",
     "jsr:@fresh/build-id@1": "1.0.1",
-    "jsr:@fresh/core@^2.2.2": "2.2.2",
-    "jsr:@olli/kvdex@3.6.5": "3.6.5",
-    "jsr:@olli/kvdex@^3.6.5": "3.6.5",
+    "jsr:@fresh/core@^2.2.2": "2.3.3",
+    "jsr:@olli/kvdex@^3.6.5": "3.6.6",
     "jsr:@std/assert@^1.0.14": "1.0.19",
     "jsr:@std/assert@~1.0.6": "1.0.19",
     "jsr:@std/bytes@^1.0.4": "1.0.6",
@@ -26,7 +25,6 @@
     "jsr:@std/fmt@1": "1.0.10",
     "jsr:@std/fmt@^1.0.8": "1.0.10",
     "jsr:@std/fmt@~1.0.2": "1.0.10",
-    "jsr:@std/fs@*": "1.0.23",
     "jsr:@std/fs@1": "1.0.23",
     "jsr:@std/fs@^1.0.11": "1.0.23",
     "jsr:@std/fs@^1.0.19": "1.0.23",
@@ -38,7 +36,7 @@
     "jsr:@std/io@~0.224.9": "0.224.9",
     "jsr:@std/json@^1.0.2": "1.1.0",
     "jsr:@std/jsonc@1": "1.0.2",
-    "jsr:@std/path@*": "1.1.4",
+    "jsr:@std/net@^1.0.6": "1.0.6",
     "jsr:@std/path@1": "1.1.4",
     "jsr:@std/path@^1.0.8": "1.1.4",
     "jsr:@std/path@^1.1.2": "1.1.4",
@@ -47,13 +45,13 @@
     "jsr:@std/path@~1.0.6": "1.0.9",
     "jsr:@std/text@~1.0.7": "1.0.18",
     "jsr:@std/ulid@1": "1.0.0",
-    "npm:@opentelemetry/api@^1.9.0": "1.9.0",
-    "npm:@preact/signals@^2.5.0": "2.8.2_preact@10.29.0",
-    "npm:@preact/signals@^2.5.1": "2.8.2_preact@10.29.0",
+    "npm:@opentelemetry/api@^1.9.0": "1.9.1",
+    "npm:@preact/signals@^2.5.0": "2.9.0_preact@10.29.1",
+    "npm:@preact/signals@^2.5.1": "2.9.0_preact@10.29.1",
     "npm:arktype@^2.2.0": "2.2.0",
-    "npm:preact-render-to-string@^6.6.3": "6.6.6_preact@10.29.0",
-    "npm:preact@^10.27.2": "10.29.0",
-    "npm:preact@^10.28.3": "10.29.0",
+    "npm:preact-render-to-string@^6.6.3": "6.6.7_preact@10.29.1",
+    "npm:preact@^10.27.2": "10.29.1",
+    "npm:preact@^10.29.1": "10.29.1",
     "npm:zod@^4.4.2": "4.4.2"
   },
   "jsr": {
@@ -127,23 +125,24 @@
         "jsr:@std/encoding@^1.0.10"
       ]
     },
-    "@fresh/core@2.2.2": {
-      "integrity": "c34873df58457720f7b915a65fef6fe5cd7215f237cf4d1064d1925b320de96c",
+    "@fresh/core@2.3.3": {
+      "integrity": "6c2aad199976644352c89a1d601f3ef331b1d24cdadb53ed469324a303598383",
       "dependencies": [
         "jsr:@fresh/build-id",
         "jsr:@std/fmt@^1.0.8",
         "jsr:@std/fs@^1.0.19",
         "jsr:@std/html",
         "jsr:@std/http@^1.0.21",
+        "jsr:@std/net",
         "jsr:@std/path@^1.1.2",
         "npm:@opentelemetry/api",
         "npm:@preact/signals@^2.5.1",
         "npm:preact-render-to-string",
-        "npm:preact@^10.28.3"
+        "npm:preact@^10.29.1"
       ]
     },
-    "@olli/kvdex@3.6.5": {
-      "integrity": "86e072d62ed5224047a0c67c7f4d0c14588886917cbaa55b275adaca6593a0d8",
+    "@olli/kvdex@3.6.6": {
+      "integrity": "ee8ba509ad7c2faf0ac29d0a4217e56be05d4f497972842d6a136ecc6ef422ec",
       "dependencies": [
         "jsr:@std/bytes",
         "jsr:@std/collections",
@@ -203,6 +202,9 @@
         "jsr:@std/json"
       ]
     },
+    "@std/net@1.0.6": {
+      "integrity": "110735f93e95bb9feb95790a8b1d1bf69ec0dc74f3f97a00a76ea5efea25500c"
+    },
     "@std/path@1.0.9": {
       "integrity": "260a49f11edd3db93dd38350bf9cd1b4d1366afa98e81b86167b4e3dd750129e"
     },
@@ -229,14 +231,14 @@
     "@ark/util@0.56.0": {
       "integrity": "sha512-BghfRC8b9pNs3vBoDJhcta0/c1J1rsoS1+HgVUreMFPdhz/CRAKReAu57YEllNaSy98rWAdY1gE+gFup7OXpgA=="
     },
-    "@opentelemetry/api@1.9.0": {
-      "integrity": "sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg=="
+    "@opentelemetry/api@1.9.1": {
+      "integrity": "sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q=="
     },
-    "@preact/signals-core@1.14.0": {
-      "integrity": "sha512-AowtCcCU/33lFlh1zRFf/u+12rfrhtNakj7UpaGEsmMwUKpKWMVvcktOGcwBBNiB4lWrZWc01LhiyyzVklJyaQ=="
+    "@preact/signals-core@1.14.1": {
+      "integrity": "sha512-vxPpfXqrwUe9lpjqfYNjAF/0RF/eFGeLgdJzdmIIZjpOnTmGmAB4BjWone562mJGMRP4frU6iZ6ei3PDsu52Ng=="
     },
-    "@preact/signals@2.8.2_preact@10.29.0": {
-      "integrity": "sha512-gym5yoa64c+0w2kL7zRAAjY548qzWXbbuOfjsK9F1nWrEqooDwyWnih5SNdonjhQSp27zUqYh7UrxIRnkCyFCA==",
+    "@preact/signals@2.9.0_preact@10.29.1": {
+      "integrity": "sha512-hYrY0KyUqkDgOl1qba/JGn6y81pXnurn21PMaxfcMwdncdZ3M/oVdmpTvEnsGjh48dIwDVc7bjWHqIsngSjYug==",
       "dependencies": [
         "@preact/signals-core",
         "preact"
@@ -256,14 +258,14 @@
         "arkregex"
       ]
     },
-    "preact-render-to-string@6.6.6_preact@10.29.0": {
-      "integrity": "sha512-EfqZJytnjJldV+YaaqhthU2oXsEf5e+6rDv957p+zxAvNfFLQOPfvBOTncscQ+akzu6Wrl7s3Pa0LjUQmWJsGQ==",
+    "preact-render-to-string@6.6.7_preact@10.29.1": {
+      "integrity": "sha512-3XdbsX3+vn9dQW+jJI/FsI9rlkgl6dbeUpqLsChak6jp3j3auFqBCkno7VChbMFs5Q8ylBj6DrUkKRwtVN3nvw==",
       "dependencies": [
         "preact"
       ]
     },
-    "preact@10.29.0": {
-      "integrity": "sha512-wSAGyk2bYR1c7t3SZ3jHcM6xy0lcBcDel6lODcs9ME6Th++Dx2KU+6D3HD8wMMKGA8Wpw7OMd3/4RGzYRpzwRg=="
+    "preact@10.29.1": {
+      "integrity": "sha512-gQCLc/vWroE8lIpleXtdJhTFDogTdZG9AjMUpVkDf2iTCNwYNWA+u16dL41TqUDJO4gm2IgrcMv3uTpjd4Pwmg=="
     },
     "zod@4.4.2": {
       "integrity": "sha512-IynmDyxsEsb9RKzO3J9+4SxXnl2FTFSzNBaKKaMV6tsSk0rw9gYw9gs+JFCq/qk2LCZ78KDwyj+Z289TijSkUw=="

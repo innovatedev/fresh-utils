@@ -11,6 +11,7 @@ Deno.test("DenoKvSessionStorage", async (t) => {
       data: { name: "test-user" },
       flash: {},
       lastSeenAt: Date.now(),
+      createdAt: Date.now(),
     };
     await store.set(sessionId, data);
 

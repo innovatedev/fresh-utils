@@ -33,6 +33,7 @@ Deno.test("KvDexSessionStorage", async (t) => {
       data: { foo: "bar", count: 123 },
       flash: {},
       lastSeenAt: Date.now(),
+      createdAt: Date.now(),
     };
 
     await store.set(sessionId, payload);
@@ -54,7 +55,12 @@ Deno.test("KvDexSessionStorage", async (t) => {
 
   await t.step("update preserves createdAt", async () => {
     const sessionId = "test-session-id-2";
-    const p1 = { data: { step: 1 }, flash: {}, lastSeenAt: Date.now() };
+    const p1 = {
+      data: { step: 1 },
+      flash: {},
+      lastSeenAt: Date.now(),
+      createdAt: Date.now(),
+    };
     // deno-lint-ignore no-explicit-any
     await store.set(sessionId, p1 as any);
     const firstGet = await db.sessions.find(sessionId);
@@ -63,7 +69,12 @@ Deno.test("KvDexSessionStorage", async (t) => {
 
     await new Promise((r) => setTimeout(r, 10));
 
-    const p2 = { data: { step: 2 }, flash: {}, lastSeenAt: Date.now() };
+    const p2 = {
+      data: { step: 2 },
+      flash: {},
+      lastSeenAt: Date.now(),
+      createdAt: Date.now(),
+    };
     // deno-lint-ignore no-explicit-any
     await store.set(sessionId, p2 as any);
     const secondGet = await db.sessions.find(sessionId);
@@ -108,7 +119,12 @@ Deno.test("KvDexSessionStorage", async (t) => {
     await store.set(
       sessionId,
       // deno-lint-ignore no-explicit-any
-      { data: { a: 1 }, flash: {}, lastSeenAt: Date.now() } as any,
+      {
+        data: { a: 1 },
+        flash: {},
+        lastSeenAt: Date.now(),
+        createdAt: Date.now(),
+      } as any,
     );
 
     await store.delete(sessionId);

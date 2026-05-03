@@ -26,6 +26,7 @@ Deno.test("KvDexSessionStorage - Flash Message Persistence", async (_t) => {
     data: {},
     flash: { [flashKey]: flashMsg },
     lastSeenAt: Date.now(),
+    createdAt: Date.now(),
   });
 
   // Verify it exists in store
@@ -38,6 +39,7 @@ Deno.test("KvDexSessionStorage - Flash Message Persistence", async (_t) => {
     data: {},
     flash: {}, // Empty flash
     lastSeenAt: Date.now(),
+    createdAt: Date.now(),
   });
 
   // 3. Verify it is GONE

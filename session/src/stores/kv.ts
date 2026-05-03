@@ -136,22 +136,43 @@ export class DenoKvSessionStorage implements SessionStorage {
   }
 
   /**
-   * Retrieves session data from Deno KV.
+   * Retrieves session data from Deno KV with version tracking.
    */
-  async get(sessionId: string): Promise<StoredSession | undefined> {
+  async get(
+    sessionId: string,
+  ): Promise<StoredSession & { version: string } | undefined> {
     const kv = await this.kv;
     const res = await kv.get<StoredSession>([...this.prefix, sessionId]);
-    return res.value || undefined;
+    if (!res.value || res.versionstamp === null) return undefined;
+    return {
+      ...res.value,
+      version: res.versionstamp,
+    };
   }
 
   /**
-   * Stores session data in Deno KV.
+   * Stores session data in Deno KV using optimistic locking.
    */
-  async set(sessionId: string, data: StoredSession): Promise<void> {
+  async set(
+    sessionId: string,
+    data: StoredSession,
+    version?: string,
+  ): Promise<{ ok: boolean }> {
     const kv = await this.kv;
-    await kv.set([...this.prefix, sessionId], data, {
-      expireIn: this.expireAfter ? this.expireAfter * 1000 : undefined,
-    });
+    const key = [...this.prefix, sessionId];
+    const atomic = kv.atomic();
+
+    if (version) {
+      atomic.check({ key, versionstamp: version });
+    }
+
+    const res = await atomic
+      .set(key, data, {
+        expireIn: this.expireAfter ? this.expireAfter * 1000 : undefined,
+      })
+      .commit();
+
+    return { ok: res.ok };
   }
 
   /**

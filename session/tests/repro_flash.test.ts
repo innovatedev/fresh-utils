@@ -1,5 +1,8 @@
 import { expect } from "./deps.ts";
-import { createSessionMiddleware, SessionStorage } from "../src/session.ts";
+import {
+  createSessionMiddleware,
+  type SessionStorage,
+} from "../src/session.ts";
 
 Deno.test("Session Middleware - Flash Message Persistence", async (t) => {
   const sessionId = "test-session";
@@ -11,11 +14,13 @@ Deno.test("Session Middleware - Flash Message Persistence", async (t) => {
       data: {},
       flash: { [flashKey]: flashMsg },
       lastSeenAt: Date.now(),
+      createdAt: Date.now(),
     }),
     set: (_id, _data) => {},
     delete: (_id) => {},
   };
 
+  // deno-lint-ignore no-explicit-any
   let savedData: any = null;
   storage.set = (_id, data) => {
     savedData = data;
@@ -23,11 +28,12 @@ Deno.test("Session Middleware - Flash Message Persistence", async (t) => {
 
   const middleware = createSessionMiddleware({ store: storage });
 
+  // deno-lint-ignore no-explicit-any
   const ctx: any = {
     req: { headers: new Headers({ cookie: `sessionId=${sessionId}` }) },
     info: { remoteAddr: { hostname: "127.0.0.1" } },
     state: {},
-    next: async () => {
+    next: () => {
       // Consume the flash message
       const msg = ctx.state.flash(flashKey);
       expect(msg).toBe(flashMsg);

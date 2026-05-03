@@ -52,6 +52,18 @@ export async function initAction(
   let enableUsername = true;
   let enableEmail = true;
   let loginField: "username" | "email" = "email";
+  let trackUA = false;
+  let trackIP = false;
+
+  let needsKv = false;
+  let isKvdex = false;
+  let isProd = false;
+
+  if (preset) {
+    needsKv = preset.startsWith("kv") || preset.startsWith("kvdex");
+    isKvdex = preset.startsWith("kvdex");
+    isProd = preset.endsWith("prod");
+  }
 
   // 1. Handle defaults and flags
   const hasFlags = !!(options.store || options.preset);
@@ -184,12 +196,30 @@ export async function initAction(
       default: true,
     });
 
-    if (preset!.startsWith("kv") || preset!.startsWith("kvdex")) {
+    // Determine store type based on preset
+    needsKv = preset!.startsWith("kv") || preset!.startsWith("kvdex");
+    isKvdex = preset!.startsWith("kvdex");
+    isProd = preset!.endsWith("prod");
+
+    if (needsKv) {
       shouldAddUnstableKv = await Confirm.prompt({
         message: "Add 'kv' to 'unstable' in deno.json? (Required for Deno KV)",
         default: true,
       });
     }
+
+    trackUA = await Confirm.prompt({
+      message: "Enable User-Agent tracking for session security?",
+      default: true,
+    });
+
+    trackIP = await Confirm.prompt({
+      message: "Enable Client IP tracking?",
+      default: true,
+    });
+  } else if (isProd || options.yes) {
+    trackUA = true;
+    trackIP = true;
   }
 
   if (authPrefix && !authPrefix.startsWith("/")) {
@@ -199,10 +229,10 @@ export async function initAction(
     authPrefix = authPrefix.slice(0, -1);
   }
 
-  // Determine store type based on preset
-  const needsKv = preset!.startsWith("kv") || preset!.startsWith("kvdex");
-  const isKvdex = preset!.startsWith("kvdex");
-  const isProd = preset!.endsWith("prod");
+  // Final determination of store type for templates
+  needsKv = preset!.startsWith("kv") || preset!.startsWith("kvdex");
+  isKvdex = preset!.startsWith("kvdex");
+  isProd = preset!.endsWith("prod");
 
   // Prepare dynamic field data
   const userFields = [
@@ -279,7 +309,17 @@ export async function initAction(
   if (isKvdex) configTemplate = "config/kvdex.ts";
   else if (needsKv) configTemplate = "config/kv.ts";
 
-  const configContent = sanitizeImports(await readTemplate(configTemplate));
+  const trackingOptions = [
+    `  trackUserAgent: ${trackUA},`,
+    `  trackIp: ${trackIP},`,
+  ].join("\n");
+
+  let configContent = sanitizeImports(await readTemplate(configTemplate));
+  configContent = replaceWithIndent(
+    configContent,
+    "// {{TRACKING_OPTIONS}}",
+    trackingOptions,
+  );
 
   // 1. Deno JSON Dependency Injection
   await updateDenoJson(options.yes, isProd, isKvdex);
@@ -297,7 +337,20 @@ export async function initAction(
       enableEmail ? '        email: "primary",' : "",
     ].filter(Boolean).join("\n");
 
+    const sessionIndices = [
+      '        userId: "secondary",',
+      '        createdAt: "secondary",',
+      '        lastSeenAt: "secondary",',
+      trackUA ? '        ua: "secondary",' : "",
+      trackIP ? '        ip: "secondary",' : "",
+    ].filter(Boolean).join("\n");
+
     let dbContent = await readTemplate("kv/db.ts");
+    dbContent = replaceWithIndent(
+      dbContent,
+      "// {{SESSION_INDICES}}",
+      sessionIndices,
+    );
     dbContent = replaceWithIndent(
       dbContent,
       "// {{USER_INDICES}}",

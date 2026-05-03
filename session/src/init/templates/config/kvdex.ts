@@ -13,6 +13,7 @@ export const sessionConfig: SessionOptions = {
     expireAfter: 60 * 60 * 24 * 7, // 1 week
     // userIndex: "email", // Optional secondary index
   }),
+  // {{TRACKING_OPTIONS}}
   cookie: {
     name: "sessionId",
     httpOnly: true,

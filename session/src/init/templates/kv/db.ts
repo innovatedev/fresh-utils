@@ -8,7 +8,11 @@ const kv = await Deno.openKv();
 const db = kvdex({
   kv,
   schema: {
-    sessions: collection(SessionModel),
+    sessions: collection(SessionModel, {
+      indices: {
+        // {{SESSION_INDICES}}
+      },
+    }),
     users: collection(UserModel, {
       indices: {
         // {{USER_INDICES}}

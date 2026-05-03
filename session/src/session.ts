@@ -18,7 +18,6 @@ export type { Context };
  * It is extensible by default to allow any JSON-serializable data.
  */
 export type SessionData = {
-  // Allow other properties for flexibility or specific test cases
   [key: string]: unknown;
 };
 
@@ -88,19 +87,28 @@ export interface SessionStorage {
    * Retrieve session data by session ID.
    *
    * @param sessionId The unique session identifier.
-   * @returns The session data, or undefined if not found/expired.
+   * @returns The session data and its version, or undefined if not found/expired.
    */
   get(
     sessionId: string,
-  ): Promise<unknown | undefined> | unknown | undefined;
+  ):
+    | Promise<StoredSession<unknown> & { version?: string } | undefined>
+    | StoredSession<unknown> & { version?: string }
+    | undefined;
 
   /**
    * Persist session data.
    *
    * @param sessionId The unique session identifier.
    * @param data The session data to store.
+   * @param version The version of the session data that was read, for optimistic locking.
+   * @returns A promise that resolves when the save is complete, with an 'ok' status if supported.
    */
-  set(sessionId: string, data: unknown): Promise<void> | void;
+  set(
+    sessionId: string,
+    data: unknown,
+    version?: string,
+  ): Promise<{ ok: boolean } | void> | { ok: boolean } | void;
 
   /**
    * Delete a session.
@@ -135,8 +143,14 @@ export interface SessionOptions<UserType = unknown, TData = SessionData> {
     sameSite?: "Strict" | "Lax" | "None";
     maxAge?: number;
   };
-  /** Session expiry in seconds. */
+  /** Session expiry in seconds (idle timeout). */
   expiry?: number;
+  /**
+   * Absolute session expiry in seconds.
+   * If provided, sessions will be invalidated after this duration from creation,
+   * regardless of activity.
+   */
+  absoluteExpiry?: number;
   /**
    * Optional callback to resolve a user object from the session data.
    *
@@ -180,6 +194,15 @@ export interface SessionOptions<UserType = unknown, TData = SessionData> {
    * Set to `null` or empty string to disable prefix stripping.
    */
   tokenPrefix?: string | null;
+  /**
+   * Optional callback for session lifecycle events.
+   * Useful for diagnostics, logging, and metrics.
+   */
+  onEvent?: (event: {
+    type: "create" | "refresh" | "destroy" | "rotate" | "expired";
+    sessionId: string;
+    userId?: string;
+  }) => void;
 }
 
 /** Internal structure for stored sessions. */
@@ -194,8 +217,19 @@ export interface StoredSession<TData = SessionData> {
   ua?: string;
   /** Captured Client IP address for validation. */
   ip?: string;
-  /** Timestamp of the last user interaction. */
+  /** Timestamp of the session creation (for absolute timeout). */
+  createdAt: number;
+  /** Timestamp of the last user interaction (for idle timeout). */
   lastSeenAt: number;
+}
+
+/**
+ * Generates a cryptographically secure 128-bit session ID.
+ */
+function generateSessionId(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /**
@@ -226,6 +260,7 @@ export function createSessionMiddleware<
   const cookieSameSite = options.cookie?.sameSite ??
     "Lax" as Cookie["sameSite"];
   const sessionExpiry = options.expiry;
+  const absoluteExpiry = options.absoluteExpiry;
 
   return async (ctx: Context<AppState>) => {
     // 1. API Token Flow (Stateless)
@@ -247,7 +282,7 @@ export function createSessionMiddleware<
           // Valid API Request
           ctx.state.user = user as unknown as AppState["user"];
           ctx.state.session = {} as TData; // Stateless
-          ctx.state.sessionId = crypto.randomUUID(); // Ephemeral
+          ctx.state.sessionId = generateSessionId(); // Ephemeral
 
           // No-op Flash info
           ctx.state.flash = (_key: string, _value?: unknown) => {
@@ -290,63 +325,115 @@ export function createSessionMiddleware<
     let storedSession: StoredSession<TData> = {
       data: {} as TData,
       flash: {},
+      createdAt: Date.now(),
       lastSeenAt: Date.now(),
       ua: currentUa,
       ip: currentIp,
     };
 
-    const logout = async () => {
+    const logout = async (reason: "destroy" | "expired" = "destroy") => {
       if (sessionId) {
         await options.store.delete(sessionId);
+        options.onEvent?.({
+          type: reason === "expired" ? "expired" : "destroy",
+          sessionId,
+          userId: storedSession.userId,
+        });
       }
-      sessionId = crypto.randomUUID();
+      sessionId = generateSessionId();
       ctx.state.sessionId = sessionId;
       ctx.state.session = {} as TData;
       storedSession = {
         data: {} as TData,
         flash: {},
+        createdAt: Date.now(),
         lastSeenAt: Date.now(),
         ua: currentUa,
         ip: currentIp,
       };
     };
 
-    if (sessionId) {
-      const raw = await options.store.get(sessionId);
-      if (raw) {
-        // Check if it's the new structure
-        if (typeof raw === "object" && "data" in raw && "flash" in raw) {
-          storedSession = raw as StoredSession<TData>;
+    let initialVersion: string | undefined;
 
-          // Validation
-          if (options.trackUserAgent && storedSession.ua !== currentUa) {
-            // Invalid UA, logout the user/terminate the session
-            await logout();
+    if (sessionId) {
+      try {
+        const raw = await options.store.get(sessionId);
+        if (raw) {
+          initialVersion = raw.version;
+          const data = raw;
+
+          // Check if it's the new structure
+          if (
+            data !== null && typeof data === "object" && "data" in data &&
+            "flash" in data
+          ) {
+            storedSession = data as StoredSession<TData>;
+
+            // 1. Validation: User Agent
+            if (options.trackUserAgent && storedSession.ua !== currentUa) {
+              await logout();
+            }
+
+            // 2. Validation: Expiry (Server-side enforcement)
+            const now = Date.now();
+            if (sessionExpiry) {
+              const idleTimeout = now - storedSession.lastSeenAt >
+                sessionExpiry * 1000;
+              if (idleTimeout) {
+                await logout("expired");
+              }
+            }
+
+            if (absoluteExpiry) {
+              const absoluteTimeout = now - storedSession.createdAt >
+                absoluteExpiry * 1000;
+              if (absoluteTimeout) {
+                await logout("expired");
+              }
+            }
+          } else {
+            // Migration: Treat flat object as data
+            storedSession.data = data as TData;
+            storedSession.createdAt = Date.now(); // Approximate
+            // Hydrate tracking info for migrated session
+            storedSession.ua = currentUa;
+            storedSession.ip = currentIp;
           }
         } else {
-          // Migration: Treat flat object as data
-          storedSession.data = raw as TData;
-          // Hydrate tracking info for migrated session
-          storedSession.ua = currentUa;
-          storedSession.ip = currentIp;
+          // Invalid session ID (expired or fake)
+          sessionId = undefined;
         }
-      } else {
-        // Invalid session ID (expired or fake)
+      } catch (error) {
+        console.error("[session] Store get error:", error);
+        // On store error, we treat it as an invalid session to be safe
         sessionId = undefined;
       }
     }
 
+    let isNewSession = false;
     if (!sessionId) {
-      sessionId = crypto.randomUUID();
+      sessionId = generateSessionId();
+      isNewSession = true;
     }
 
     const initialSessionId = sessionId;
+    let forceSave = false;
 
     // Helper to rotate session
     const rotateSession = async () => {
-      await options.store.delete(initialSessionId);
-      sessionId = crypto.randomUUID();
+      try {
+        await options.store.delete(initialSessionId);
+      } catch (error) {
+        console.error("[session] Store delete error during rotation:", error);
+      }
+      sessionId = generateSessionId();
       ctx.state.sessionId = sessionId;
+      forceSave = true;
+      options.onEvent?.({
+        type: "rotate",
+        sessionId,
+        userId: storedSession.userId,
+      });
     };
 
     // Populate State
@@ -407,17 +494,13 @@ export function createSessionMiddleware<
       ctx.state.userId = storedSession.userId;
     }
 
-    const response = await ctx.next();
+    // Save only if dirty (data changed, flash changed, or session is new/rotated)
+    // OR if lastSeenAt is old enough to warrant an update (e.g. > 10% of expiry)
+    const originalData = JSON.stringify(storedSession.data);
+    const originalFlash = JSON.stringify(storedSession.flash);
+    const originalLastSeen = storedSession.lastSeenAt;
 
-    // Session rotation logic
-    // If ctx.state.sessionId was modified manually (and doesn't match our tracked sessionId from login/init),
-    // we interpret this as a request to rotate, but we enforce a secure random ID.
-    if (ctx.state.sessionId !== sessionId) {
-      await rotateSession();
-    }
-
-    // Prepare data for save
-    // 1. Remove consumed flash messages from stored
+    // Helper to cleanup flash messages
     const performFlashCleanup = () => {
       const nextFlash: Record<string, unknown> = {};
       // Keep unconsumed old flash
@@ -432,19 +515,62 @@ export function createSessionMiddleware<
       }
       storedSession.flash = nextFlash;
     };
+
+    const response = await ctx.next();
+
+    // Session rotation logic
+    if (ctx.state.sessionId !== sessionId) {
+      await rotateSession();
+    }
+
+    // Prepare data for save
     performFlashCleanup();
 
-    // 2. Update System Fields
-    storedSession.lastSeenAt = Date.now();
-    // Ensure accurate tracking on save (in case of rotation or migration)
-    if (options.trackUserAgent) storedSession.ua = currentUa;
-    if (options.trackIp) storedSession.ip = currentIp;
+    const dataChanged = originalData !== JSON.stringify(storedSession.data);
+    const flashChanged = originalFlash !== JSON.stringify(storedSession.flash);
+    const now = Date.now();
+    // Update lastSeenAt if data changed or every 1 minute to keep session alive
+    const shouldUpdateLastSeen = flashChanged || dataChanged ||
+      (now - originalLastSeen > 60000);
 
-    // UserId persisted from check or login
-    // UserId persisted from check or login
+    if (
+      isNewSession || dataChanged || flashChanged || shouldUpdateLastSeen ||
+      forceSave
+    ) {
+      storedSession.lastSeenAt = now;
+      if (options.trackUserAgent) storedSession.ua = currentUa;
+      if (options.trackIp) storedSession.ip = currentIp;
 
-    // Save
-    await options.store.set(sessionId, storedSession);
+      try {
+        const result = await options.store.set(
+          sessionId,
+          storedSession,
+          initialVersion,
+        );
+
+        if (result && typeof result === "object" && result.ok === false) {
+          console.warn(
+            `[session] Optimistic locking failure for session ${sessionId}. Concurrent modification detected.`,
+          );
+        }
+
+        if (isNewSession) {
+          options.onEvent?.({
+            type: "create",
+            sessionId,
+            userId: storedSession.userId,
+          });
+        } else if (shouldUpdateLastSeen && !dataChanged && !flashChanged) {
+          options.onEvent?.({
+            type: "refresh",
+            sessionId,
+            userId: storedSession.userId,
+          });
+        }
+      } catch (error) {
+        console.error("[session] Store set error:", error);
+      }
+    }
 
     setCookie(response.headers, {
       name: cookieName,
