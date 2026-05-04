@@ -61,7 +61,7 @@ Deno.test("Write-Ahead Log (WAL) Crash Recovery", async (t) => {
     });
 
     // 2. Instantiate the store, which fires the background #syncWal task in the constructor
-    new KvDexSessionStorage({
+    const store = new KvDexSessionStorage({
       db: db,
       collection: db.sessions,
     });
@@ -91,6 +91,11 @@ Deno.test("Write-Ahead Log (WAL) Crash Recovery", async (t) => {
     expect((newIndexSearch.result[0].value as SessionDoc<KvValue>).userId).toBe(
       "new-user-id",
     );
+
+    // 6. Verify the session is readable via the store API post-recovery
+    const recovered = await store.get(sessionId);
+    expect(recovered).toBeDefined();
+    expect(recovered?.userId).toBe("new-user-id");
   });
 
   await t.step(

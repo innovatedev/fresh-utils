@@ -357,8 +357,6 @@ export async function initAction(
       '        userId: "secondary",',
       '        createdAt: "secondary",',
       '        lastSeenAt: "secondary",',
-      trackUA ? '        ua: "secondary",' : "",
-      trackIP ? '        ip: "secondary",' : "",
     ].filter(Boolean).join("\n");
 
     let dbContent = await readTemplate("kv/db.ts");

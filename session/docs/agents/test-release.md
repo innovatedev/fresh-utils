@@ -261,3 +261,27 @@ When an agent completes validation, it should report:
 9. Runtime verification: confirm login → session created → logout → session
    destroyed with an actual HTTP request cycle against the generated app.
 10. Link to the **Self-Assessment JSON report**.
+
+## 8. Post-Eval Artifact
+
+After completing validation, write a file to
+`evaluations/<date>-v<version>/context.md` containing:
+
+### Package state snapshot
+
+- Version evaluated
+- All open issues found (not fixed in this run)
+- All verified behaviors with evidence citations
+- Any automatic failure conditions that were close calls
+
+### What the next agent should know
+
+- Which tests are meaningful vs boilerplate
+- Which parts of the codebase changed since last eval
+- Known gotchas encountered during this run
+- Which scenarios passed without issue (safe to skim next time)
+
+### What the next agent should NOT do
+
+- List anything that was attempted and failed or caused problems
+- List any "obvious fixes" that are intentional design decisions (reference ADR)

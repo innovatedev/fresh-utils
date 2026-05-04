@@ -5,10 +5,7 @@
  * - storeSupports type guard
  * - session.update() timeoutMs
  */
-import {
-  assertEquals,
-  assertExists,
-} from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { assertEquals, assertExists } from "jsr:@std/assert@^1.0.0";
 import { createSessionMiddleware, storeSupports } from "../src/session.ts";
 import { MemorySessionStorage } from "../src/stores/memory.ts";
 import { DenoKvSessionStorage } from "../src/stores/kv.ts";

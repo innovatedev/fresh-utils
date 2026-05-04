@@ -79,11 +79,6 @@ Deno.test({
         "src",
         "mod.ts",
       );
-      denoJson.imports["@innovatedev/fresh-session"] = join(
-        ROOT,
-        "src",
-        "mod.ts",
-      );
       denoJson.imports["@innovatedev/fresh-session/kvdex-store"] = join(
         ROOT,
         "src",

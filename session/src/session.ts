@@ -620,7 +620,7 @@ export function createSessionMiddleware<
           sessionId = undefined;
         }
       } catch (error) {
-        console.error("[session] Store get error:", error);
+        logger.error("[session] Store get error:", error);
         // On store error, we treat it as an invalid session to be safe
         sessionId = undefined;
       }
