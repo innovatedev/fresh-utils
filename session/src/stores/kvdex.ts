@@ -72,6 +72,8 @@ export function sessionSchemaFactory(z: any): any {
       ua: z.string().optional(),
       /** Captured Client IP address for validation. */
       ip: z.string().optional(),
+      /** Schema version of the session record. */
+      __v: z.number().default(1),
     }).passthrough();
 }
 
@@ -167,6 +169,7 @@ export const createBaseSessionSchema: (z: any) => any = sessionSchemaFactory;
  * though you can extend `data` with your specific `SessionData` type.
  */
 export type SessionDoc<TData extends KvValue> = {
+  __v: number;
   createdAt: Date;
   updatedAt: Date;
   lastSeenAt: Date;
@@ -351,6 +354,7 @@ export class KvDexSessionStorage<
     // Reconstruct StoredSession format for the middleware
     // We add guard rails here to prevent crashing on corrupted data
     const stored: StoredSession<TSessionData> = {
+      __v: val.__v ?? 0,
       data: val.data,
       flash: (val.flash || {}) as Record<string, unknown>,
       userId: val.userId,
@@ -439,6 +443,7 @@ export class KvDexSessionStorage<
 
     // Construct the full document matching SessionDoc structure
     const doc: SessionDoc<TSessionData> = {
+      __v: p.__v ?? 1,
       createdAt,
       updatedAt: now,
       expiresAt,

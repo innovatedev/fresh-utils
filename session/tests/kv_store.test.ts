@@ -9,6 +9,7 @@ Deno.test("DenoKvSessionStorage", async (t) => {
   await t.step("set and get", async () => {
     const sessionId = "test-id";
     const data = {
+      __v: 1,
       data: { name: "test-user" },
       flash: {},
       lastSeenAt: Date.now(),
@@ -31,6 +32,7 @@ Deno.test("DenoKvSessionStorage", async (t) => {
   await t.step("should throw on version mismatch", async () => {
     const sessionId = "conflict-test";
     await store.set(sessionId, {
+      __v: 1,
       data: { val: 1 },
       flash: {},
       lastSeenAt: Date.now(),
@@ -42,6 +44,7 @@ Deno.test("DenoKvSessionStorage", async (t) => {
 
     // Concurrent update (simulated by manual set)
     await store.set(sessionId, {
+      __v: 1,
       data: { val: 2 },
       flash: {},
       lastSeenAt: Date.now(),
@@ -50,6 +53,7 @@ Deno.test("DenoKvSessionStorage", async (t) => {
 
     // Attempt update with old version should throw SessionConflictError
     await expect(store.set(sessionId, {
+      __v: 1,
       data: { val: 3 },
       flash: {},
       lastSeenAt: Date.now(),

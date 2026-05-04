@@ -35,6 +35,7 @@ Deno.test("KvDexSessionStorage", async (t) => {
   await t.step("set and get (flat structure)", async () => {
     const sessionId = "test-session-id-1";
     const payload = {
+      __v: 1,
       data: { foo: "bar", count: 123 },
       flash: {},
       lastSeenAt: Date.now(),
@@ -61,6 +62,7 @@ Deno.test("KvDexSessionStorage", async (t) => {
   await t.step("update preserves createdAt", async () => {
     const sessionId = "test-session-id-2";
     const p1 = {
+      __v: 1,
       data: { step: 1 },
       flash: {},
       lastSeenAt: Date.now(),
@@ -75,6 +77,7 @@ Deno.test("KvDexSessionStorage", async (t) => {
     await new Promise((r) => setTimeout(r, 10));
 
     const p2 = {
+      __v: 1,
       data: { step: 2 },
       flash: {},
       lastSeenAt: Date.now(),
@@ -126,6 +129,7 @@ Deno.test("KvDexSessionStorage", async (t) => {
       sessionId,
       // deno-lint-ignore no-explicit-any
       {
+        __v: 1,
         data: { a: 1 },
         flash: {},
         lastSeenAt: Date.now(),

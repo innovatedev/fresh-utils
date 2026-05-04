@@ -8,6 +8,7 @@
  */
 import type { Context } from "fresh";
 import { type Cookie, getCookies, setCookie } from "@std/http/cookie";
+import { CURRENT_SESSION_FORMAT_VERSION, migrate } from "./migrations.ts";
 
 export type { Context };
 
@@ -236,6 +237,8 @@ export interface SessionOptions<UserType = unknown, TData = SessionData> {
 
 /** Internal structure for stored sessions. */
 export interface StoredSession<TData = SessionData> {
+  /** Schema version of the session record. */
+  __v: number;
   /** The user-defined session data. */
   data: TData;
   /** Internal flash message storage. */
@@ -353,6 +356,7 @@ export function createSessionMiddleware<
 
     // Internal state
     let storedSession: StoredSession<TData> = {
+      __v: CURRENT_SESSION_FORMAT_VERSION,
       data: {} as TData,
       flash: {},
       createdAt: Date.now(),
@@ -376,6 +380,7 @@ export function createSessionMiddleware<
       // deno-lint-ignore no-explicit-any
       ctx.state.session = {} as any;
       storedSession = {
+        __v: CURRENT_SESSION_FORMAT_VERSION,
         data: {} as TData,
         flash: {},
         createdAt: Date.now(),
@@ -392,44 +397,29 @@ export function createSessionMiddleware<
         const raw = await options.store.get(sessionId);
         if (raw) {
           initialVersion = raw.version;
-          const data = raw;
+          storedSession = migrate(raw) as StoredSession<TData>;
 
-          // Check if it's the new structure
-          if (
-            data !== null && typeof data === "object" && "data" in data &&
-            "flash" in data
-          ) {
-            storedSession = data as StoredSession<TData>;
+          // 1. Validation: User Agent
+          if (options.trackUserAgent && storedSession.ua !== currentUa) {
+            await logout();
+          }
 
-            // 1. Validation: User Agent
-            if (options.trackUserAgent && storedSession.ua !== currentUa) {
-              await logout();
+          // 2. Validation: Expiry (Server-side enforcement)
+          const now = Date.now();
+          if (sessionExpiry) {
+            const idleTimeout = now - storedSession.lastSeenAt >
+              sessionExpiry * 1000;
+            if (idleTimeout) {
+              await logout("expired");
             }
+          }
 
-            // 2. Validation: Expiry (Server-side enforcement)
-            const now = Date.now();
-            if (sessionExpiry) {
-              const idleTimeout = now - storedSession.lastSeenAt >
-                sessionExpiry * 1000;
-              if (idleTimeout) {
-                await logout("expired");
-              }
+          if (absoluteExpiry) {
+            const absoluteTimeout = now - storedSession.createdAt >
+              absoluteExpiry * 1000;
+            if (absoluteTimeout) {
+              await logout("expired");
             }
-
-            if (absoluteExpiry) {
-              const absoluteTimeout = now - storedSession.createdAt >
-                absoluteExpiry * 1000;
-              if (absoluteTimeout) {
-                await logout("expired");
-              }
-            }
-          } else {
-            // Migration: Treat flat object as data
-            storedSession.data = data as TData;
-            storedSession.createdAt = Date.now(); // Approximate
-            // Hydrate tracking info for migrated session
-            storedSession.ua = currentUa;
-            storedSession.ip = currentIp;
           }
         } else {
           // Invalid session ID (expired or fake)

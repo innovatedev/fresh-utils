@@ -79,6 +79,7 @@ Deno.test("Performance: Write-on-change", async (t) => {
   let setCalls = 0;
   const store: SessionStorage = {
     get: () => ({
+      __v: 1,
       data: { foo: "bar" },
       flash: {},
       lastSeenAt: Date.now(),
@@ -193,6 +194,7 @@ Deno.test("Correctness: Rotation Safety", async () => {
 
   const store: SessionStorage = {
     get: (_id: string) => ({
+      __v: 1,
       data: { user: "test" },
       flash: {},
       lastSeenAt: Date.now(),
@@ -237,6 +239,7 @@ Deno.test("Correctness: Optimistic Locking Collision", async (t) => {
   const sessionId = "test-collision";
   // Pre-seed the session
   store.set(sessionId, {
+    __v: 1,
     data: { counter: 0 },
     flash: {},
     createdAt: Date.now(),

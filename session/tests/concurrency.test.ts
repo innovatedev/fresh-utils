@@ -24,6 +24,7 @@ Deno.test("Session Concurrency - Optimistic Locking Conflict Detection", async (
 
   // Initial setup
   await store.set(sessionId, {
+    __v: 1,
     data: { count: 0 },
     flash: {},
     createdAt: Date.now(),

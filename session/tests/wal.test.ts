@@ -32,6 +32,7 @@ Deno.test("Write-Ahead Log (WAL) Crash Recovery", async (t) => {
     // but the secondary index (kvdex internal structure) was never updated.
 
     const oldDoc = {
+      __v: 1,
       data: { foo: "bar" },
       flash: {},
       createdAt: new Date(),

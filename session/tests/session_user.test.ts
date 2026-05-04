@@ -28,10 +28,12 @@ Deno.test("Integration: Session User Resolution", async (t) => {
     // 1. Manually seed a session with a userId (using internal structure)
     const sessionId = "session-123";
     await sessionStore.set(sessionId, {
+      __v: 1,
       data: {},
       flash: {},
       userId: "u1",
       lastSeenAt: Date.now(),
+      createdAt: Date.now(),
     });
 
     // 2. Make a request with that session ID
@@ -55,9 +57,11 @@ Deno.test("Integration: Session User Resolution", async (t) => {
     // 1. Session exists but no userId
     const sessionId = "session-456";
     await sessionStore.set(sessionId, {
+      __v: 1,
       data: { some: "data" },
       flash: {},
       lastSeenAt: Date.now(),
+      createdAt: Date.now(),
     });
 
     const ctx: any = {
@@ -77,10 +81,12 @@ Deno.test("Integration: Session User Resolution", async (t) => {
     // 1. Session has invalid userId
     const sessionId = "session-789";
     await sessionStore.set(sessionId, {
+      __v: 1,
       data: {},
       flash: {},
       userId: "unknown_id",
       lastSeenAt: Date.now(),
+      createdAt: Date.now(),
     });
 
     const ctx: any = {

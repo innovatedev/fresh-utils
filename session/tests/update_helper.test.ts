@@ -24,6 +24,7 @@ Deno.test("Session.update() Helper", async (t) => {
 
   // Pre-seed the session
   await store.set(sessionId, {
+    __v: 1,
     data: { count: 10 },
     flash: {},
     createdAt: Date.now(),
@@ -65,6 +66,7 @@ Deno.test("Session.update() Helper", async (t) => {
           if (callCount === 1) {
             // Simulate a concurrent write happening RIGHT NOW
             await store.set(sessionId, {
+              __v: 1,
               data: { count: 100 },
               flash: {},
               createdAt: Date.now(),
