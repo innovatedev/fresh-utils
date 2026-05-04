@@ -24,6 +24,7 @@ import {
   model,
   type ParseId,
 } from "@olli/kvdex";
+export { model };
 
 // Re-export types that are part of the public API surface
 export type { Collection, KvValue };
@@ -133,6 +134,11 @@ export namespace StandardSchemaV1 {
 }
 
 /**
+ * A kvdex model type.
+ */
+export type KvdexModel<T extends KvValue> = ReturnType<typeof model<T>>;
+
+/**
  * Creates a library-agnostic kvdex model for sessions.
  *
  * If no validator is provided, this returns a model with no runtime validation (only types).
@@ -140,18 +146,15 @@ export namespace StandardSchemaV1 {
  * it will be used for type inference.
  *
  * @template TData The type of the user-defined session data.
- * @param dataValidator Optional Standard Schema compliant validator for the session data.
+ * @param _dataValidator Optional Standard Schema compliant validator for the session data.
  * @returns A kvdex model.
  */
 export function sessionModel<TData extends KvValue>(
-  // deno-lint-ignore no-explicit-any
-  _dataValidator?: StandardSchemaV1<any, TData> | any,
-  // deno-lint-ignore no-explicit-any
-): any {
+  _dataValidator?: StandardSchemaV1<unknown, TData>,
+): KvdexModel<SessionDoc<TData>> {
   // We return a raw model for the SessionDoc structure.
   // This is the most stable and library-agnostic approach.
-  // deno-lint-ignore no-explicit-any
-  return model<SessionDoc<TData>>() as any;
+  return model<SessionDoc<TData>>() as KvdexModel<SessionDoc<TData>>;
 }
 
 /**
@@ -214,8 +217,7 @@ export interface KvDexSessionStorageOptions<
   /**
    * Optional Standard Schema compliant validator for the session data.
    */
-  // deno-lint-ignore no-explicit-any
-  dataValidator?: StandardSchemaV1<any, TSessionData> | any;
+  dataValidator?: StandardSchemaV1<unknown, TSessionData>;
   /**
    * Optional prefix for Write-Ahead Log (WAL) tracking records.
    * Defaults to `["__@innovatedev__", "fresh-session", "kvdex", "write-ahead-logging"]`.
@@ -253,16 +255,17 @@ export class KvDexSessionStorage<
   const TSessionData extends KvValue,
   const TUser extends KvValue,
 > implements SessionStorage {
+  // We use any for internal kvdex complex types to avoid deep dependency on its internal structure,
+  // but we harden the rest of the implementation.
   // deno-lint-ignore no-explicit-any
   #collection: Collection<any, any, any>;
   // deno-lint-ignore no-explicit-any
-  #db?: any;
+  #db: any;
   // deno-lint-ignore no-explicit-any
   #userCollection?: Collection<any, any, any>;
   #expireAfter?: number;
   #userIndex?: string;
-  // deno-lint-ignore no-explicit-any
-  #dataValidator?: StandardSchemaV1<any, TSessionData>;
+  #dataValidator?: StandardSchemaV1<unknown, TSessionData>;
   #idKeyPrefix: Deno.KvKey = [];
   #primaryIndexedProperties: string[] = [];
   #secondaryIndexedProperties: string[] = [];
@@ -326,8 +329,9 @@ export class KvDexSessionStorage<
       this.#primaryIndexPrefix = col.keys.primaryIndex || [];
       this.#secondaryIndexPrefix = col.keys.secondaryIndex || [];
     }
-    this.#primaryIndexedProperties = col.primaryIndexList || [];
-    this.#secondaryIndexedProperties = col.secondaryIndexList || [];
+    this.#primaryIndexedProperties = (col.primaryIndexList as string[]) || [];
+    this.#secondaryIndexedProperties = (col.secondaryIndexList as string[]) ||
+      [];
 
     // Trigger WAL sync in the background to clean up any stale indices from previous crashes
     // If this fails, it will result in an unhandled promise rejection, which is the correct
@@ -343,8 +347,7 @@ export class KvDexSessionStorage<
   ): Promise<StoredSession<TSessionData> & { version: string } | undefined> {
     // We cast sessionId to ParseId because SessionStorage enforces string IDs
     const doc = await this.#collection.find(
-      // deno-lint-ignore no-explicit-any
-      sessionId as unknown as ParseId<any>,
+      sessionId as unknown as ParseId<string>,
     );
 
     if (!doc) return undefined;
@@ -401,8 +404,7 @@ export class KvDexSessionStorage<
     version?: string,
   ): Promise<void> {
     // Check if session exists to preserve createdAt and manage indices
-    // deno-lint-ignore no-explicit-any
-    const sessionId = id as unknown as ParseId<any>;
+    const sessionId = id as unknown as ParseId<string>;
     const existing = await this.#collection.find(sessionId);
 
     const now = new Date();
@@ -417,8 +419,7 @@ export class KvDexSessionStorage<
       : new Date(now.getTime() + 1000 * 60 * 60 * 24 * 365); // Default to 1 year if not set
 
     // Extract fields from StoredSession payload (which middleware passes as payload)
-    // deno-lint-ignore no-explicit-any
-    const p = payload as any;
+    const p = payload;
 
     // Runtime validation before set
     if (this.#dataValidator) {
@@ -448,7 +449,7 @@ export class KvDexSessionStorage<
       updatedAt: now,
       expiresAt,
       data: p.data,
-      flash: p.flash ?? {},
+      flash: (p.flash as Record<string, KvValue>) ?? {},
       userId: p.userId,
       lastSeenAt: p.lastSeenAt ? new Date(p.lastSeenAt) : now,
       ua: p.ua,
@@ -495,20 +496,18 @@ export class KvDexSessionStorage<
    */
   async #updateIndices(
     sessionId: string,
-    // deno-lint-ignore no-explicit-any
-    oldDoc: any | undefined,
-    // deno-lint-ignore no-explicit-any
-    newDoc: any,
+    oldDoc: Partial<SessionDoc<TSessionData>> | undefined,
+    newDoc: SessionDoc<TSessionData>,
     expireIn?: number,
   ) {
     const encoder = new TextEncoder();
-    const promises: Promise<void>[] = [];
+    const promises: Promise<unknown>[] = [];
     const primaryIndexDoc = { ...newDoc, __id__: sessionId };
 
     // 1. Delete old secondary indices
     for (const prop of this.#secondaryIndexedProperties) {
-      const oldVal = oldDoc?.[prop];
-      const newVal = newDoc?.[prop];
+      const oldVal = (oldDoc as Record<string, unknown>)?.[prop];
+      const newVal = (newDoc as Record<string, unknown>)?.[prop];
       if (oldVal !== undefined && oldVal !== null && oldVal !== newVal) {
         const indexKey = [
           ...this.#secondaryIndexPrefix,
@@ -522,7 +521,7 @@ export class KvDexSessionStorage<
 
     // 2. Set new secondary indices
     for (const prop of this.#secondaryIndexedProperties) {
-      const newVal = newDoc?.[prop];
+      const newVal = (newDoc as Record<string, unknown>)?.[prop];
       if (newVal !== undefined && newVal !== null) {
         const indexKey = [
           ...this.#secondaryIndexPrefix,
@@ -536,8 +535,8 @@ export class KvDexSessionStorage<
 
     // 3. Delete old primary indices
     for (const prop of this.#primaryIndexedProperties) {
-      const oldVal = oldDoc?.[prop];
-      const newVal = newDoc?.[prop];
+      const oldVal = (oldDoc as Record<string, unknown>)?.[prop];
+      const newVal = (newDoc as Record<string, unknown>)?.[prop];
       if (oldVal !== undefined && oldVal !== null && oldVal !== newVal) {
         const indexKey = [
           ...this.#primaryIndexPrefix,
@@ -550,7 +549,7 @@ export class KvDexSessionStorage<
 
     // 4. Set new primary indices
     for (const prop of this.#primaryIndexedProperties) {
-      const newVal = newDoc?.[prop];
+      const newVal = (newDoc as Record<string, unknown>)?.[prop];
       if (newVal !== undefined && newVal !== null) {
         const indexKey = [
           ...this.#primaryIndexPrefix,
@@ -576,8 +575,11 @@ export class KvDexSessionStorage<
   async #syncWal() {
     for await (const entry of this.#db.kv.list({ prefix: this.#walPrefix })) {
       const sessionId = entry.key[entry.key.length - 1] as string;
-      // deno-lint-ignore no-explicit-any
-      const { oldDoc, newDoc, expireIn } = entry.value as any;
+      const { oldDoc, newDoc, expireIn } = entry.value as {
+        oldDoc: Partial<SessionDoc<TSessionData>> | undefined;
+        newDoc: SessionDoc<TSessionData>;
+        expireIn?: number;
+      };
       try {
         await this.#updateIndices(sessionId, oldDoc, newDoc, expireIn);
       } catch (error) {
@@ -600,22 +602,18 @@ export class KvDexSessionStorage<
       const result = await this.#userCollection.findBySecondaryIndex(
         // deno-lint-ignore no-explicit-any
         this.#userIndex as any,
-        // deno-lint-ignore no-explicit-any
-        userId as any,
+        userId,
       );
       doc = result.result[0];
     } else {
       doc = await this.#userCollection.find(
-        // deno-lint-ignore no-explicit-any
-        userId as unknown as ParseId<any>,
+        userId as unknown as ParseId<string>,
       );
     }
 
     if (!doc) return undefined;
 
-    // We assume TUser matches doc.value
-    // deno-lint-ignore no-explicit-any
-    const value = doc.value as any;
+    const value = doc.value;
     return value as TUser;
   }
 
@@ -624,8 +622,7 @@ export class KvDexSessionStorage<
    */
   async delete(sessionId: string): Promise<void> {
     await this.#collection.delete(
-      // deno-lint-ignore no-explicit-any
-      sessionId as unknown as ParseId<any>,
+      sessionId as unknown as ParseId<string>,
     );
   }
 }

@@ -12,8 +12,7 @@ export const CURRENT_SESSION_FORMAT_VERSION = 1;
  * Map of migration functions.
  * Each function upgrades a record from version (N-1) to N.
  */
-// deno-lint-ignore no-explicit-any
-export const migrations: Record<number, (record: any) => any> = {
+export const migrations: Record<number, (record: unknown) => unknown> = {
   // Version 1 is the baseline for versioned records.
   // Future migrations will be added here (e.g., 2: (record) => { ... }).
 };
@@ -30,10 +29,12 @@ export const migrations: Record<number, (record: any) => any> = {
  * @param record The raw session record from the store.
  * @returns The migrated session record.
  */
-// deno-lint-ignore no-explicit-any
-export function migrate(record: any): StoredSession {
+export function migrate(record: unknown): StoredSession {
   // If no record or no version field, treat as invalid/legacy and start fresh
-  if (!record || typeof record.__v !== "number") {
+  if (
+    !record || typeof record !== "object" ||
+    typeof (record as Record<string, unknown>).__v !== "number"
+  ) {
     return {
       __v: CURRENT_SESSION_FORMAT_VERSION,
       data: {},
@@ -43,7 +44,8 @@ export function migrate(record: any): StoredSession {
     };
   }
 
-  let v = record.__v;
+  let currentRecord = record as Record<string, unknown>;
+  let v = currentRecord.__v as number;
 
   if (v > CURRENT_SESSION_FORMAT_VERSION) {
     throw new Error(
@@ -57,12 +59,12 @@ export function migrate(record: any): StoredSession {
     if (!migrator) {
       throw new Error(`Missing migration for session version ${nextV}`);
     }
-    record = migrator(record);
+    currentRecord = migrator(currentRecord) as Record<string, unknown>;
     v = nextV;
   }
 
   return {
-    ...record,
+    ...currentRecord,
     __v: CURRENT_SESSION_FORMAT_VERSION,
-  } as StoredSession;
+  } as unknown as StoredSession;
 }

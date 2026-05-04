@@ -313,8 +313,7 @@ export function createSessionMiddleware<
         if (user) {
           // Valid API Request
           ctx.state.user = user as unknown as AppState["user"];
-          // deno-lint-ignore no-explicit-any
-          ctx.state.session = {} as any; // Stateless
+          ctx.state.session = {} as AppState["session"]; // Stateless
           ctx.state.sessionId = generateSessionId(); // Ephemeral
 
           // No-op Flash info
@@ -378,8 +377,7 @@ export function createSessionMiddleware<
       sessionId = generateSessionId();
       ctx.state.sessionId = sessionId;
       initialVersion = undefined;
-      // deno-lint-ignore no-explicit-any
-      ctx.state.session = {} as any;
+      ctx.state.session = {} as AppState["session"];
       storedSession = {
         __v: CURRENT_SESSION_FORMAT_VERSION,
         data: {} as TData,
@@ -462,16 +460,13 @@ export function createSessionMiddleware<
     let sessionData = storedSession.data;
 
     // Use Proxy to provide direct property access while adding methods
-    // deno-lint-ignore no-explicit-any
-    const sessionObject = new Proxy(sessionData as any, {
+    const sessionObject = new Proxy(sessionData as TData & Session<TData>, {
       get(target, prop, receiver) {
         if (prop === "update") {
           return async (
-            // deno-lint-ignore no-explicit-any
-            transform: (data: any) => any | Promise<any>,
+            transform: (data: TData) => TData | Promise<TData>,
             updateOptions?: { maxRetries?: number },
-            // deno-lint-ignore no-explicit-any
-          ): Promise<UpdateResult<any>> => {
+          ): Promise<UpdateResult<TData>> => {
             const maxRetries = updateOptions?.maxRetries ?? 3;
             let attempts = 0;
             while (attempts < maxRetries) {
@@ -479,7 +474,7 @@ export function createSessionMiddleware<
                 const current = await options.store.get(sessionId!);
                 if (!current) return { ok: false, reason: "not_found" };
 
-                const newData = await transform(current.data);
+                const newData = await transform(current.data as TData);
                 await options.store.set(
                   sessionId!,
                   {
@@ -498,9 +493,7 @@ export function createSessionMiddleware<
                 originalLastSeen = Date.now();
 
                 // Update proxy target so subsequent reads see change
-                for (const key in newData) {
-                  target[key] = newData[key];
-                }
+                Object.assign(target as object, newData);
                 return { ok: true, data: newData };
               } catch (error) {
                 attempts++;
@@ -525,8 +518,7 @@ export function createSessionMiddleware<
 
     // Populate State
     ctx.state.sessionId = sessionId;
-    // deno-lint-ignore no-explicit-any
-    ctx.state.session = sessionObject as any;
+    ctx.state.session = sessionObject as AppState["session"];
 
     // Implement Flash API
     // We need to track consumed flash messages to remove them on save
@@ -556,8 +548,7 @@ export function createSessionMiddleware<
       await rotateSession();
       storedSession.userId = userId;
       storedSession.data = data || ({} as TData);
-      // deno-lint-ignore no-explicit-any
-      ctx.state.session = storedSession.data as any;
+      ctx.state.session = storedSession.data as AppState["session"];
     };
 
     ctx.state.logout = logout;

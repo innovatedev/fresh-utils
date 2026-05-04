@@ -56,8 +56,8 @@
   `fast-check`, and adequacy-proving litmus tests.
 - **Security Validation**: Strengthened entropy audit and server-side expiry
   enforcement with negative assertion testing.
-- **Versioned Sessions**: Added `__v` field to session data to track schema
-  with migration path for future releases if any changes are required.
+- **Versioned Sessions**: Added `__v` field to session data to track schema with
+  migration path for future releases if any changes are required.
 
 ## 0.7.0
 
