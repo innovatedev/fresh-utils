@@ -4,6 +4,9 @@ A weighted scoring framework for evaluating session middleware across any
 server-side framework. Each criterion is scored **0–4**. The weighted total out
 of **100** determines the overall rating.
 
+> **Standard version: 3.0** — Domain weights updated in v0.8.0 to reflect the
+> addition of `Crash Resilience` as an independently scored criterion.
+
 ---
 
 ## Scoring scale (per criterion)
@@ -110,7 +113,7 @@ score no higher than 2.
 
 ---
 
-## Domain 4 — Developer Experience (25 pts)
+## Domain 4 — Developer Experience (22 pts)
 
 ### Flash / one-time data — 4 pts
 
@@ -216,8 +219,8 @@ score:
 | Transport security       | Security    | 9       |             |              |
 | Session invalidation     | Security    | 9       |             |              |
 | Fixation protection      | Security    | 7       |             |              |
-| Concurrency safety       | Correctness | 10      |             |              |
-| Crash resilience         | Correctness | 8       |             |              |
+| Concurrency safety       | Correctness | 8       |             |              |
+| Crash resilience         | Correctness | 10      |             |              |
 | Persistence correctness  | Correctness | 7       |             |              |
 | Store I/O efficiency     | Performance | 9       |             |              |
 | Store pluggability       | Performance | 9       |             |              |
@@ -227,7 +230,7 @@ score:
 | Configuration ergonomics | DX          | 4       |             |              |
 | Middleware composability | DX          | 3       |             |              |
 | Diagnostics & logging    | DX          | 2       |             |              |
-| Migration & versioning   | DX          | 3       |             |              |
+| Migration & versioning   | DX          | 4       |             |              |
 | **Total**                |             | **100** |             |              |
 
 > **Weighted pts formula:** `(score / 4) × weight`, rounded to nearest integer.

@@ -71,4 +71,23 @@ export class MemorySessionStorage implements SessionStorage {
   delete(sessionId: string): void {
     this.#store.delete(sessionId);
   }
+
+  /**
+   * Retrieves all active sessions for a specific user from memory.
+   */
+  getSessionsForUser(
+    userId: string,
+  ): { sid: string; session: StoredSession<unknown> }[] {
+    const sessions: { sid: string; session: StoredSession<unknown> }[] = [];
+    for (const [sid, entry] of this.#store.entries()) {
+      const data = entry.data as StoredSession<unknown>;
+      if (data.userId === userId) {
+        sessions.push({
+          sid,
+          session: structuredClone(data),
+        });
+      }
+    }
+    return sessions;
+  }
 }

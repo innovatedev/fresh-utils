@@ -1,5 +1,10 @@
 # Agent Validation Guide: Fresh Session Init
 
+> [!NOTE]
+> If running in Claude Code: read this entire document before taking any action.
+> Do not begin setup until you have confirmed the workspace structure matches
+> section 1. Report findings to the user before generating the evaluation JSON.
+
 This guide provides instructions for an AI agent to validate the
 `@innovatedev/fresh-session` initialization script in a fresh project
 environment.

@@ -44,12 +44,17 @@ export interface Session<TData = SessionData> {
    * Useful for concurrent mutations (e.g. counters, cart updates).
    *
    * @param transform A function that receives the freshest data and returns the updated data.
+   *                  Should be a pure transformation; avoid external side effects as it may run multiple times.
    * @param options Configuration for the retry loop.
    */
   update<T = TData>(
     transform: (data: T) => T | Promise<T>,
     options?: {
+      /** Maximum number of retries on conflict (default: 3). */
       maxRetries?: number;
+      /** Total time budget for all retry attempts in milliseconds. */
+      timeoutMs?: number;
+      /** Behavior when retries are exhausted. */
       onExhausted?: "warn" | "throw";
     },
   ): Promise<UpdateResult<T>>;
@@ -111,6 +116,23 @@ export type State<UserType = unknown, TData = SessionData> = {
    * @param key The key of the flash message.
    */
   hasFlash(key: string): boolean;
+
+  /**
+   * Retrieves all active sessions for a specific user.
+   * Supported by Memory and KvDex stores.
+   *
+   * @param userId The unique user identifier.
+   */
+  getSessionsForUser(
+    userId: string,
+  ): Promise<{ sid: string; session: StoredSession<unknown> }[]>;
+
+  /**
+   * Revokes all sessions for a specific user except for the current one.
+   *
+   * @param userId The unique user identifier.
+   */
+  revokeOtherSessions(userId: string): Promise<void>;
 };
 
 /**
@@ -162,6 +184,7 @@ export interface SessionStorage {
    * @param sessionId The unique session identifier to remove.
    */
   delete(sessionId: string): Promise<void> | void;
+
   /**
    * Optional method to resolve a user from the session ID or other stored data.
    * This allows the store to handle user fetching logic (e.g. from KV).
@@ -169,6 +192,32 @@ export interface SessionStorage {
   resolveUser?(
     userId: string,
   ): Promise<unknown | undefined> | unknown | undefined;
+
+  /**
+   * Optional method to retrieve all active sessions for a specific user.
+   * Useful for session introspection and management.
+   *
+   * @param userId The unique user identifier.
+   */
+  getSessionsForUser?(
+    userId: string,
+  ):
+    | Promise<{ sid: string; session: StoredSession<unknown> }[]>
+    | { sid: string; session: StoredSession<unknown> }[];
+}
+
+/**
+ * Type guard to check if a storage backend supports a specific optional method.
+ *
+ * @param store The storage backend instance.
+ * @param method The name of the optional method to check for.
+ */
+export function storeSupports<T extends keyof SessionStorage>(
+  store: SessionStorage,
+  method: T,
+): store is SessionStorage & Required<Pick<SessionStorage, T>> {
+  return typeof (store as unknown as Record<string, unknown>)[method] ===
+    "function";
 }
 
 /**
@@ -612,13 +661,24 @@ export function createSessionMiddleware<
             transform: (data: TData) => TData | Promise<TData>,
             updateOptions?: {
               maxRetries?: number;
+              timeoutMs?: number;
               onExhausted?: "warn" | "throw";
             },
           ): Promise<UpdateResult<TData>> => {
             const maxRetries = updateOptions?.maxRetries ?? 3;
             const onExhausted = updateOptions?.onExhausted ?? "warn";
+            const timeoutMs = updateOptions?.timeoutMs;
+            const startTime = Date.now();
             let attempts = 0;
+
             while (attempts < maxRetries) {
+              if (timeoutMs && (Date.now() - startTime > timeoutMs)) {
+                if (onExhausted === "throw") {
+                  throw new Error(`Update timed out after ${timeoutMs}ms`);
+                }
+                logger.warn(`[session] Update timed out after ${timeoutMs}ms`);
+                return { ok: false, reason: "exhausted" };
+              }
               try {
                 const current = await options.store.get(sessionId!);
                 if (!current) return { ok: false, reason: "not_found" };
@@ -694,7 +754,6 @@ export function createSessionMiddleware<
     ctx.state.hasFlash = (key: string): boolean => {
       return key in storedSession.flash || key in newFlash;
     };
-
     // Implement Login/Logout
     ctx.state.login = async (userId: string, data?: TData) => {
       await rotateSession();
@@ -704,6 +763,24 @@ export function createSessionMiddleware<
     };
 
     ctx.state.logout = logout;
+
+    ctx.state.getSessionsForUser = async (userId: string) => {
+      if (storeSupports(options.store, "getSessionsForUser")) {
+        return await options.store.getSessionsForUser(userId);
+      }
+      return [];
+    };
+
+    ctx.state.revokeOtherSessions = async (userId: string) => {
+      if (storeSupports(options.store, "getSessionsForUser")) {
+        const sessions = await options.store.getSessionsForUser(userId);
+        const currentSid = sessionId;
+        const promises = sessions
+          .filter((s) => s.sid !== currentSid)
+          .map((s) => options.store.delete(s.sid));
+        await Promise.all(promises);
+      }
+    };
 
     // User Resolution
     if (options.resolveUser) {

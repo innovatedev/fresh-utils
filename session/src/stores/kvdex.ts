@@ -177,6 +177,7 @@ export const createBaseSessionSchema: (z: any) => any = sessionSchemaFactory;
  */
 export type SessionDoc<TData extends KvValue> = {
   __v: number;
+  __appV?: number;
   createdAt: Date;
   updatedAt: Date;
   lastSeenAt: Date;
@@ -634,5 +635,43 @@ export class KvDexSessionStorage<
     await this.#collection.delete(
       sessionId as unknown as ParseId<string>,
     );
+  }
+
+  /**
+   * Retrieves all active sessions for a specific user using a secondary index.
+   * Requires the 'userId' property to be indexed as 'secondary' in the collection configuration.
+   *
+   * @param userId The unique user identifier.
+   */
+  async getSessionsForUser(
+    userId: string,
+  ): Promise<{ sid: string; session: StoredSession<TSessionData> }[]> {
+    if (!this.#secondaryIndexedProperties.includes("userId")) {
+      return [];
+    }
+
+    const { result } = await this.#collection.findBySecondaryIndex(
+      "userId" as unknown as ParseId<string>,
+      userId,
+    );
+
+    // deno-lint-ignore no-explicit-any
+    return result.map((doc: any) => {
+      const val = doc.value as SessionDoc<TSessionData>;
+      return {
+        sid: doc.id as string,
+        session: {
+          __v: val.__v,
+          __appV: val.__appV,
+          data: val.data,
+          flash: (val.flash || {}) as Record<string, unknown>,
+          userId: val.userId,
+          lastSeenAt: val.lastSeenAt.getTime(),
+          createdAt: val.createdAt.getTime(),
+          ua: val.ua,
+          ip: val.ip,
+        },
+      };
+    });
   }
 }

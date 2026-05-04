@@ -309,7 +309,9 @@ Deno.test("Session Migration: Application Data Version (__appV)", async (t) => {
     // Should be logged out (new session)
     expect(ctx.state.sessionId).not.toBe(sessionId);
     expect(ctx.state.session.count).toBeUndefined();
-    expect(logErrorCalled, "Migration error should have been logged").toBe(true);
+    expect(logErrorCalled, "Migration error should have been logged").toBe(
+      true,
+    );
   });
 });
 
