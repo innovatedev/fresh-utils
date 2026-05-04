@@ -1,41 +1,47 @@
 import { expect } from "./deps.ts";
-import { CURRENT_SESSION_FORMAT_VERSION, migrate } from "../src/migrations.ts";
+import { MIDDLEWARE_SCHEMA_VERSION, migrate } from "../src/migrations.ts";
 
 Deno.test("Session Migration Logic", async (t) => {
   await t.step(
-    "should return fresh v1 record if __v is missing (no legacy support)",
+    "should migrate v0 record (missing __v) and preserve data",
     () => {
       const legacy = { theme: "dark", count: 42 };
-      const migrated = migrate(legacy);
+      const { record: migrated, migrated: isMigrated } = migrate(legacy);
 
+      expect(isMigrated).toBe(true);
       expect(migrated.__v).toBe(1);
-      expect(migrated.data).toEqual({}); // Data is NOT migrated
+      expect(migrated.data).toBeUndefined(); // It's still at the root in raw legacy
+      expect((migrated as unknown as Record<string, unknown>).theme).toBe(
+        "dark",
+      );
+      expect((migrated as unknown as Record<string, unknown>).count).toBe(42);
       expect(migrated.flash).toEqual({});
       expect(typeof migrated.createdAt).toBe("number");
     },
   );
 
   await t.step(
-    "should return fresh v1 record for structured v0 records",
+    "should migrate structured v0 records",
     () => {
       const legacy = {
         data: { theme: "light" },
         flash: { msg: "hello" },
         userId: "user-123",
       };
-      const migrated = migrate(legacy);
+      const { record: migrated } = migrate(legacy);
 
       expect(migrated.__v).toBe(1);
-      expect(migrated.data).toEqual({});
-      expect(migrated.userId).toBeUndefined();
+      expect(migrated.data).toEqual({ theme: "light" });
+      expect(migrated.flash).toEqual({ msg: "hello" });
+      expect(migrated.userId).toBe("user-123");
     },
   );
 
   await t.step(
-    "should handle null/undefined by returning fresh v1 record",
+    "should handle null/undefined by returning fresh record",
     () => {
-      const migrated = migrate(null);
-      expect(migrated.__v).toBe(CURRENT_SESSION_FORMAT_VERSION);
+      const { record: migrated } = migrate(null);
+      expect(migrated.__v).toBe(MIDDLEWARE_SCHEMA_VERSION);
       expect(migrated.data).toEqual({});
     },
   );
@@ -48,7 +54,8 @@ Deno.test("Session Migration Logic", async (t) => {
       createdAt: 12345,
       lastSeenAt: 67890,
     };
-    const migrated = migrate(v1);
+    const { record: migrated, migrated: isMigrated } = migrate(v1);
+    expect(isMigrated).toBe(false);
     expect(migrated).toEqual(v1);
   });
 

@@ -5,6 +5,7 @@ import {
 import { KvDexSessionStorage } from "@innovatedev/fresh-session/kvdex-store";
 import { db } from "../kv/db.ts";
 import type { State } from "../utils.ts";
+import { APP_SESSION_VERSION, appMigrations } from "./session.migrate.ts";
 
 export const sessionConfig: SessionOptions = {
   store: new KvDexSessionStorage({
@@ -14,6 +15,10 @@ export const sessionConfig: SessionOptions = {
     expireAfter: 60 * 60 * 24 * 7, // 1 week
     // userIndex: "email", // Optional secondary index
   }),
+  migrate: {
+    version: APP_SESSION_VERSION,
+    migrations: appMigrations,
+  },
   // {{TRACKING_OPTIONS}}
   cookie: {
     name: "sessionId",

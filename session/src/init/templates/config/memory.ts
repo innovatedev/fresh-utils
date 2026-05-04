@@ -4,9 +4,14 @@ import {
 } from "@innovatedev/fresh-session";
 import { MemorySessionStorage } from "@innovatedev/fresh-session/memory-store";
 import type { State } from "../utils.ts";
+import { APP_SESSION_VERSION, appMigrations } from "./session.migrate.ts";
 
 export const sessionConfig: SessionOptions = {
   store: new MemorySessionStorage(),
+  migrate: {
+    version: APP_SESSION_VERSION,
+    migrations: appMigrations,
+  },
   // {{TRACKING_OPTIONS}}
   cookie: {
     name: "sessionId",

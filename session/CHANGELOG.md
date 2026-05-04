@@ -2,7 +2,7 @@
 
 ## Versions
 
-- [0.7.1](#071)
+- [0.8.0](#080)
 - [0.7.0](#070)
 - [0.6.0](#060)
 - [0.5.2](#052)
@@ -39,32 +39,26 @@
 - [0.3.0](#030)
 - [0.2.0](#020)
 
-## 0.7.1
+## 0.8.0
 
-- **Crash Recovery (WAL)**: Fixed a reliability bug in `KvDexSessionStorage`
-  where the Write-Ahead Log (WAL) was deleted even if index updates failed. It
-  now properly persists WAL records for retry on failure using `Promise.all`.
-- **Memory Store Integrity**: Fixed a reference leakage bug in
-  `MemorySessionStorage` by implementing `structuredClone` for reads and writes,
-  ensuring concurrent in-memory requests don't mutate shared state.
-- **Observability (Logging)**: Introduced `SessionLogger` interface and `logger`
-  option to middleware and stores, allowing custom structured logging and
-  suppressing noise in production.
-- **Improved `session.update()`**: Added `onExhausted` strategy (`"warn"` or
-  `"throw"`) and improved retry reliability for concurrent mutations.
-- **Benchmark Suite**: Added a formal performance benchmark suite and captured a
-  v0.7.1 baseline for storage backend comparisons.
-- **Performance Optimization**: Optimized the middleware to avoid sending
-  redundant `set-cookie` headers for stable, unchanged sessions.
-- **Source Hardening**: Hardened the core logic to eliminate `any` casts,
-  ensuring strict type safety across the middleware proxy and migration engine.
-- **Testing (Hardened)**: Transformed the test suite into a production-grade
-  framework with strictly typed `Context<State>`, property-based testing via
-  `fast-check`, and adequacy-proving litmus tests.
-- **Security Validation**: Strengthened entropy audit and server-side expiry
-  enforcement with negative assertion testing.
-- **Versioned Sessions**: Added `__v` field to session data to track schema with
-  migration path for future releases if any changes are required.
+> [!NOTE]
+> Session data will be automatically migrated on first access. No action required.
+> If rolling back to a previous version, sessions created after this release
+> will be invalidated (`onUnknownVersion: "invalidate"` default behaviour).
+
+- **Migration**: Added dual-layer session versioning (`__v` for middleware schema, `__appV` for application data). Configure via `migrate` option in `createSessionMiddleware`. Supports sequential migrations, async transforms, lazy write-back, and configurable `onUnknownVersion` policy.
+- **Data Shape**: Added `__appV` field to the stored session record to track application-level schema versions. Missing `__appV` is treated as version 0.
+- **Type**: Exported `MigrationFn` type for use in dedicated migration files.
+- **Config**: `forceWriteOnMigration` option for immediate persistence of security-relevant schema changes.
+- **Crash Recovery (WAL)**: Fixed a reliability bug in `KvDexSessionStorage` where the Write-Ahead Log (WAL) was deleted even if index updates failed. It now properly persists WAL records for retry on failure using `Promise.all`.
+- **Memory Store Integrity**: Fixed a reference leakage bug in `MemorySessionStorage` by implementing `structuredClone` for reads and writes, ensuring concurrent in-memory requests don't mutate shared state.
+- **Observability (Logging)**: Introduced `SessionLogger` interface and `logger` option to middleware and stores, allowing custom structured logging and suppressing noise in production.
+- **Improved `session.update()`**: Added `onExhausted` strategy (`"warn"` or `"throw"`) and improved retry reliability for concurrent mutations.
+- **Benchmark Suite**: Added a formal performance benchmark suite and captured a baseline for storage backend comparisons.
+- **Performance Optimization**: Optimized the middleware to avoid sending redundant `set-cookie` headers for stable, unchanged sessions.
+- **Source Hardening**: Hardened the core logic to eliminate `any` casts, ensuring strict type safety across the middleware proxy and migration engine.
+- **Testing (Hardened)**: Transformed the test suite into a production-grade framework with strictly typed `Context<State>`, property-based testing via `fast-check`, and adequacy-proving litmus tests.
+- **Security Validation**: Strengthened entropy audit and server-side expiry enforcement with negative assertion testing.
 
 ## 0.7.0
 

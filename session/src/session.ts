@@ -8,8 +8,8 @@
  */
 import type { Context } from "fresh";
 import { type Cookie, getCookies, setCookie } from "@std/http/cookie";
-import { CURRENT_SESSION_FORMAT_VERSION, migrate } from "./migrations.ts";
-import { SessionConflictError } from "./errors.ts";
+import { MIDDLEWARE_SCHEMA_VERSION, migrate } from "./migrations.ts";
+import { SessionConfigError, SessionConflictError } from "./errors.ts";
 
 export type { Context };
 
@@ -254,12 +254,58 @@ export interface SessionOptions<UserType = unknown, TData = SessionData> {
    * Defaults to global `console`.
    */
   logger?: SessionLogger;
+  /**
+   * Application data versioning and migration configuration.
+   */
+  migrate?: MigrationConfig<TData>;
 }
+
+/**
+ * Configuration for application data migration.
+ */
+export interface MigrationConfig<TData = SessionData> {
+  /**
+   * The current version of the application session data schema.
+   * REQUIRED if migrate is provided.
+   */
+  version: number;
+
+  /**
+   * Map of migration functions.
+   * Each key is a version number, and the value is a function that
+   * upgrades the session data from version (N-1) to N.
+   */
+  migrations: Record<number, MigrationFn>;
+
+  /**
+   * Strategy for handling records with a version higher than `version`.
+   * Defaults to "invalidate".
+   *
+   * - "invalidate": The session is treated as invalid and the user is logged out.
+   * - "reset": Session data is cleared, but metadata (userId, etc.) is kept.
+   * - "keep": Data is passed through as-is (unsafe).
+   */
+  onUnknownVersion?: "invalidate" | "reset" | "keep";
+
+  /**
+   * If true, force a store write whenever a migration occurs, even if
+   * the session is not otherwise modified during the request.
+   * Defaults to false.
+   */
+  forceWriteOnMigration?: boolean;
+}
+
+/**
+ * A function that transforms session data from one version to the next.
+ */
+export type MigrationFn = (data: unknown) => unknown | Promise<unknown>;
 
 /** Internal structure for stored sessions. */
 export interface StoredSession<TData = SessionData> {
   /** Schema version of the session record. */
   __v: number;
+  /** Application data version. */
+  __appV?: number;
   /** The user-defined session data. */
   data: TData;
   /** Internal flash message storage. */
@@ -315,6 +361,31 @@ export function createSessionMiddleware<
   const sessionExpiry = options.expiry;
   const absoluteExpiry = options.absoluteExpiry;
   const logger = options.logger ?? console;
+
+  // Startup Validation for Migrations
+  if (options.migrate) {
+    const { version, migrations } = options.migrate;
+    if (!Number.isInteger(version) || version < 1) {
+      throw new SessionConfigError(
+        "migrate.version must be a positive integer",
+      );
+    }
+    for (let i = 1; i <= version; i++) {
+      if (!migrations[i]) {
+        throw new SessionConfigError(
+          `Migration chain is incomplete. Version is set to ${version} but no migration function exists for version ${i}.`,
+        );
+      }
+    }
+    const maxMigrationV = Math.max(
+      ...Object.keys(migrations).map((k) => parseInt(k)),
+    );
+    if (maxMigrationV > version) {
+      throw new SessionConfigError(
+        `migrate.migrations contains keys greater than version ${version}`,
+      );
+    }
+  }
 
   return async (ctx: Context<AppState>) => {
     // 1. API Token Flow (Stateless)
@@ -378,7 +449,8 @@ export function createSessionMiddleware<
 
     // Internal state
     let storedSession: StoredSession<TData> = {
-      __v: CURRENT_SESSION_FORMAT_VERSION,
+      __v: MIDDLEWARE_SCHEMA_VERSION,
+      __appV: options.migrate?.version ?? 0,
       data: {} as TData,
       flash: {},
       createdAt: Date.now(),
@@ -401,7 +473,8 @@ export function createSessionMiddleware<
       initialVersion = undefined;
       ctx.state.session = {} as AppState["session"];
       storedSession = {
-        __v: CURRENT_SESSION_FORMAT_VERSION,
+        __v: MIDDLEWARE_SCHEMA_VERSION,
+        __appV: options.migrate?.version ?? 0,
         data: {} as TData,
         flash: {},
         createdAt: Date.now(),
@@ -412,13 +485,64 @@ export function createSessionMiddleware<
     };
 
     let initialVersion: string | undefined;
+    let forceSave = false;
 
     if (sessionId) {
       try {
         const raw = await options.store.get(sessionId);
         if (raw) {
           initialVersion = raw.version;
-          storedSession = migrate(raw) as StoredSession<TData>;
+          const { record: migrated, migrated: _middlewareMigrated } = migrate(
+            raw,
+          );
+          storedSession = migrated as StoredSession<TData>;
+
+          // 2. Application Data Migration
+          if (options.migrate) {
+            const { version, migrations, onUnknownVersion = "invalidate" } =
+              options.migrate;
+            let appV = storedSession.__appV ?? 0;
+
+            if (appV < version) {
+              // Migrate Forward
+              try {
+                while (appV < version) {
+                  const nextV = appV + 1;
+                  const migrator = migrations[nextV];
+                  // We know migrator exists due to startup validation
+                  storedSession.data =
+                    (await migrator(storedSession.data)) as TData;
+                  appV = nextV;
+                }
+                storedSession.__appV = version;
+                if (options.migrate.forceWriteOnMigration) {
+                  forceSave = true;
+                }
+              } catch (error) {
+                logger.error(
+                  `[session] Application migration failed for version ${
+                    appV + 1
+                  }:`,
+                  error,
+                );
+                await logout();
+                return ctx.next();
+              }
+            } else if (appV > version) {
+              // Newer version found (rollback or multi-version deployment)
+              if (onUnknownVersion === "invalidate") {
+                await logout();
+                return ctx.next();
+              } else if (onUnknownVersion === "reset") {
+                storedSession.data = {} as TData;
+                storedSession.__appV = version;
+                if (options.migrate.forceWriteOnMigration) {
+                  forceSave = true;
+                }
+              }
+              // "keep" -> do nothing
+            }
+          }
 
           // 1. Validation: User Agent
           if (options.trackUserAgent && storedSession.ua !== currentUa) {
@@ -458,7 +582,6 @@ export function createSessionMiddleware<
       sessionId = generateSessionId();
       isNewSession = true;
     }
-    let forceSave = false;
 
     // Helper to rotate session
     const rotateSession = async () => {

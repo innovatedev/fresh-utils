@@ -4,6 +4,7 @@ import {
 } from "@innovatedev/fresh-session";
 import { DenoKvSessionStorage } from "@innovatedev/fresh-session/kv-store";
 import type { State } from "../utils.ts";
+import { APP_SESSION_VERSION, appMigrations } from "./session.migrate.ts";
 
 export const sessionConfig: SessionOptions = {
   // 7 days expiration, persistent in KV
@@ -11,6 +12,10 @@ export const sessionConfig: SessionOptions = {
     expireAfter: 60 * 60 * 24 * 7, // 1 week
     // userKeyPrefix: ["users"], // Uncomment to enable automatic user resolution
   }),
+  migrate: {
+    version: APP_SESSION_VERSION,
+    migrations: appMigrations,
+  },
   // {{TRACKING_OPTIONS}}
   cookie: {
     name: "sessionId",

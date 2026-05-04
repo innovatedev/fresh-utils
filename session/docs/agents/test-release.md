@@ -112,18 +112,20 @@ Run `init` on a project that ALREADY has session configured.
 
 Test in a subdirectory of a monorepo using `DENO_NO_WORKSPACE=1`.
 
-### Scenario 9: Migration Versioning
+### Scenario 9: Application Session Migration
 
-Simulate an old session record:
-
-1. Manually insert a v0 record (missing `__v`) into the store.
-2. Verify it is correctly handled as per the "discard legacy" policy.
-3. **Verification:**
-   - [ ] Legacy record (no `__v`) is treated as missing/invalid.
-   - [ ] Application does NOT crash when encountering a v0 record.
-   - [ ] A fresh v1 session is created with `__v: 1` on the next write.
-   - [ ] No data from the v0 record is "leaked" into the new v1 session if
-         unsafe.
+- [ ] Manually insert a record with `__appV: 0` (or no `__appV`) into the store
+- [ ] Make a request that reads the session
+- [ ] Verify the migrated data shape matches `TData` for the current version
+- [ ] Verify `__appV` is updated to current version after next write
+- [ ] Insert a record with `__appV` higher than configured version
+- [ ] Verify `onUnknownVersion: "invalidate"` logs the user out
+- [ ] Verify `onUnknownVersion: "reset"` preserves `userId` but clears `data`
+- [ ] Verify startup throws `SessionConfigError` if migration chain has gaps
+- [ ] Verify `forceWriteOnMigration: true` causes a store write even on
+      read-only requests
+- [ ] Confirm migration functions are never called with typed assumptions —
+      input is `unknown`
 
 ## 4. Code Validation Checklist
 

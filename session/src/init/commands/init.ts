@@ -340,6 +340,11 @@ export async function initAction(
 
   // 2. Config & Routes
   await writeFile("config/session.ts", configContent, options.yes);
+  await writeFile(
+    "config/session.migrate.ts",
+    sanitizeImports(await readTemplate("config/session.migrate.ts")),
+    options.yes,
+  );
 
   // 2.5. Write kv/ files for kvdex presets
   if (isKvdex) {

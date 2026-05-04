@@ -21,7 +21,7 @@ or similar, or simply inspect the JSON:
 DENO_NO_WORKSPACE=1 deno bench -A --json session/bench/store_bench.ts > current.json
 ```
 
-## Baseline v0.7.1
+## Baseline v0.8.0
 
-The baseline for version 0.7.1 was captured using an in-memory Deno KV instance.
-See [v0.7.1_baseline.json](./results/v0.7.1_baseline.json).
+The baseline for version 0.8.0 was captured using an in-memory Deno KV instance.
+See [v0.8.0_baseline.json](./results/v0.8.0_baseline.json).
