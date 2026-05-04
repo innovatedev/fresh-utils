@@ -58,7 +58,7 @@ export default define.page((ctx) => {
             </div>
           )}
 
-          <form method="POST" class="space-y-6">
+          <form method="POST" class="flex flex-col gap-6">
             {/* {{REGISTER_FIELDS}} */}
 
             <label class="form-control w-full">
@@ -102,10 +102,10 @@ export default define.page((ctx) => {
               Already have an account?
             </div>
 
-            <div class="mt-6">
+            <div class="mt-6 text-center">
               <a
                 href="/login"
-                class="w-full btn btn-outline transition-all"
+                class="link link-primary font-medium"
               >
                 Sign in
               </a>

@@ -267,7 +267,7 @@ export async function patchButtonComponent() {
       if (updated.includes('class="px-2 py-1')) {
         updated = updated.replace(
           'class="px-2 py-1 border-gray-500 border-2 rounded-sm bg-white hover:bg-gray-200 transition-colors"',
-          'class={`px-2 py-1 border-gray-500 border-2 rounded-sm bg-white hover:bg-gray-200 transition-colors ${props.class ?? ""}`}',
+          'class={`${props.class ?? "px-2 py-1 border-gray-500 border-2 rounded-sm bg-white hover:bg-gray-200 transition-colors"}`}',
         );
       }
 
