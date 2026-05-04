@@ -66,49 +66,116 @@ Run the script with the non-interactive flag:
 deno run -A {workspaceroot}/session/src/init/mod.ts -y
 ```
 
-**Verification:**
-
-- [ ] `config/session.ts` exists and uses `KvDexSessionStorage`.
-- [ ] `kv/db.ts` exists.
-- [ ] `kv/models.ts` exists and uses the `sessionModel()` helper.
-- [ ] `utils.ts` is patched with `AppState` and `defineAuth`.
-- [ ] `main.ts` includes `app.use(session)`.
-- [ ] Authentication routes (`routes/login.tsx`, etc.) are generated.
-
 ### Scenario 2: DaisyUI Detection
 
 1. Add `daisyui` to `deno.json` imports.
 2. Run the init script and confirm DaisyUI detection.
-3. **Verification:** Generated routes should use `daisyui` classes (e.g.,
-   `btn-primary`, `input-bordered`).
+
+### Scenario 3: Atomic Update Smoke Test
+
+After init, add a handler that calls `session.update()` and verify:
+
+- [ ] Handler compiles with zero type errors
+- [ ] `result.ok` and `result.reason` are accessible with correct types
+- [ ] Calling with `onExhausted: "throw"` compiles correctly
+
+### Scenario 4: Memory Store Preset
+
+Run `init` and select **Memory** storage.
+
+- [ ] Verify it warns or errors appropriately if the project looks
+      multi-process.
+- [ ] Verify DX around "don't use this in production" is clearly surfaced.
+
+### Scenario 5: KV Store Preset (non-kvdex)
+
+Run `init` and select **Deno KV** (not Kvdex).
+
+- [ ] Verify atomic behavior works.
+- [ ] Verify `session.update()` works WITHOUT a manual `db` instance requirement
+      in the store config.
+
+### Scenario 6: Vanilla Tailwind vs No CSS framework
+
+Test the fallback path:
+
+1. Run on a project with Tailwind but NO DaisyUI.
+2. Run on a project with NO CSS framework.
+
+### Scenario 7: Upgrade Scenario
+
+Run `init` on a project that ALREADY has session configured.
+
+- [ ] Verify idempotency (no duplicate patching of `utils.ts` or `main.ts`).
+
+### Scenario 8: Monorepo Scenario
+
+Test in a subdirectory of a monorepo using `DENO_NO_WORKSPACE=1`.
+
+### Scenario 9: Migration Versioning
+
+Simulate an old session record:
+
+1. Manually insert a v0 record (missing `__v`) into the store.
+2. Verify it is correctly handled as per the "discard legacy" policy.
+3. **Verification:**
+   - [ ] Legacy record (no `__v`) is treated as missing/invalid.
+   - [ ] Application does NOT crash when encountering a v0 record.
+   - [ ] A fresh v1 session is created with `__v: 1` on the next write.
+   - [ ] No data from the v0 record is "leaked" into the new v1 session if
+         unsafe.
 
 ## 4. Code Validation Checklist
 
-After running the script, validate the following. Note: If testing in a
-subdirectory of a monorepo, you may need `DENO_NO_WORKSPACE=1`.
+### Validation Matrix
 
-### Type Safety & Inference
+| Check                         | Memory | KV  | Kvdex    |
+| ----------------------------- | ------ | --- | -------- |
+| `config/session.ts` exists    | ✓      | ✓   | ✓        |
+| `kv/db.ts` exists             | ✗      | ✗   | ✓        |
+| `kv/models.ts` exists         | ✗      | ✗   | ✓        |
+| `db` instance passed to store | N/A    | N/A | Required |
+| `session.update()` supported  | ✓      | ✓   | ✓        |
+| `utils.ts` patched            | ✓      | ✓   | ✓        |
+| `main.ts` patched             | ✓      | ✓   | ✓        |
+
+### General Integrity
 
 - [ ] Run `deno check **/*.ts **/*.tsx`. There should be **zero** type errors.
-- [ ] `utils.ts` MUST use `export type { State }` (not just import) to ensure
-      global visibility.
-- [ ] `utils.ts` MUST define an `AppState` alias that merges `State` and
+- [ ] `utils.ts` MUST use `export type { State }` (not just import).
+- [ ] `utils.ts` MUST define an `AppState` alias merging `State` and
       `ExtraState`.
-- [ ] Verify `routes/index.tsx` can still access `ctx.state.shared` (boilerplate
-      preservation).
-- [ ] No `any` casts should exist in the generated route handlers.
-
-### Dependency Integrity
-
-- [ ] `deno.json` should contain `@olli/kvdex`.
-- [ ] Runtime validation (Zod/Arktype) is OPTIONAL and developer-selected.
 - [ ] `deno.lock` should be consistent (run `deno install`).
 
-### Data Architecture
+### Negative Validation (Anti-Patterns)
 
-- [ ] Verify `kvdex` records are **flattened** (metadata at top-level).
-- [ ] Confirm NO redundant `id` field exists inside the stored record.
-- [ ] Verify `sessionModel()` is used to provide a library-agnostic base.
+- [ ] **No session payload** appears in any generated log output.
+- [ ] **No hardcoded secrets** or placeholder credentials in generated files.
+- [ ] **No `any` casts** in generated middleware config (not just route
+      handlers).
+- [ ] **`MemorySessionStorage` is NOT the default** for any production preset.
+- [ ] **No `overwrite: true`** on indexed kvdex collections.
+
+## 5. Runtime Verification
+
+Static validation is insufficient. You MUST run the generated application to
+ensure code that compiles also behaves correctly at runtime.
+
+### Smoke Test Procedure
+
+1. Start the generated app: `deno task dev`.
+2. Perform a full auth cycle using `curl` or a browser:
+   - [ ] **Login**: POST to `/login` and verify a `Set-Cookie` header is
+         returned.
+   - [ ] **Persistence**: GET a protected route using the cookie and verify
+         `ctx.state.user` is populated.
+   - [ ] **Update**: Trigger a `session.update()` call and verify the data
+         persists across requests.
+   - [ ] **Logout**: POST to `/logout` and verify the cookie is cleared and the
+         session is destroyed in the store.
+3. **Storage Integrity**:
+   - [ ] (Kvdex) Check Deno KV to ensure indices are correctly written.
+   - [ ] (Memory) Verify session is LOST on server restart.
 
 ## 6. Self-Assessment & Compliance Report
 
@@ -126,6 +193,7 @@ implementation against the
 
 ```json
 {
+  "standard_version": "3.0",
   "version": "x.y.z",
   "timestamp": "ISO-8601",
   "score": 0-100,
@@ -133,28 +201,43 @@ implementation against the
   "evaluator": "Agent Name",
   "domains": {
     "security": { "score": 0, "max": 35, "findings": [] },
-    "correctness": { "score": 0, "max": 22, "findings": [] },
+    "correctness": { "score": 0, "max": 25, "findings": [] },
     "performance": { "score": 0, "max": 18, "findings": [] },
-    "dx": { "score": 0, "max": 25, "findings": [] }
+    "dx": { "score": 0, "max": 22, "findings": [] }
   },
+  "findings": [
+    {
+      "criterion": "Concurrency safety",
+      "score": 3,
+      "max_score": 4,
+      "weighted_pts": 8,
+      "evidence": "kvdex.ts:L463 — versionstamp check in atomic block",
+      "notes": "WAL recovery path verified via #syncWal at L332"
+    }
+  ],
   "automaticFailureConditions": {
     "insufficientEntropy": "PASS/FAIL",
     "noServerSideInvalidation": "PASS/FAIL",
     "fixationVulnerability": "PASS/FAIL",
     "plaintextStorage": "PASS/FAIL",
-    "noAbsoluteExpiry": "PASS/FAIL"
+    "noAbsoluteExpiry": "PASS/FAIL",
+    "lastWriteWinsWithNoConflictDetection": "PASS/FAIL",
+    "claimedBehaviorWithNoTestCoverage": "PASS/FAIL"
   }
 }
 ```
 
 > [!IMPORTANT]
-> BE CRITICAL. You are a QUALITY CONTROL AUDITOR, not an enabler of bad
-> practices or shortcuts. For DX, punish any code smells or messy code
-> generation practices, or bad DX with using this package. If the agent is
-> testing multiple presets or design systems, create a separate JSON report file
-> for each combination. Also make sure all domain values are weighted correctly
-> based on the standards document and total is out of 100 (weighted from
-> standards document).
+> You are a QUALITY CONTROL AUDITOR. Apply the standard ruthlessly:
+>
+> - Every finding MUST cite file and line number evidence.
+> - A claimed behavior without a corresponding test scores MAX 2, not 4.
+> - Security claims cannot be self-reported — verify against source.
+> - Domain maxes: Security 35, Correctness 25, Performance 18, DX 22.
+> - A perfect domain score requires evidence that the criterion is exceeded, not
+>   just met.
+> - Close calls on automatic failure conditions must be documented, not just
+>   marked PASS.
 
 ## 7. Execution Summary
 
@@ -164,4 +247,10 @@ When an agent completes validation, it should report:
 2. Preset selected (Memory/KV/Kvdex).
 3. Design System detected (Vanilla/DaisyUI).
 4. Results of `deno check` (confirm no inference regressions).
-5. Link to the **Self-Assessment JSON report**.
+5. Evidence citations for all security claims (file + line).
+6. Explicit statement of the conflict resolution path verified.
+7. WAL recovery path verification result (or N/A for non-kvdex stores).
+8. Any automatic failure conditions that were close calls, not just pass/fail.
+9. Runtime verification: confirm login → session created → logout → session
+   destroyed with an actual HTTP request cycle against the generated app.
+10. Link to the **Self-Assessment JSON report**.
