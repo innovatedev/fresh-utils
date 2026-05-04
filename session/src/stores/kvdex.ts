@@ -12,7 +12,11 @@
  * // ... setup ...
  * ```
  */
-import type { SessionStorage, StoredSession } from "../session.ts";
+import type {
+  SessionLogger,
+  SessionStorage,
+  StoredSession,
+} from "../session.ts";
 import {
   SessionConfigError,
   SessionConflictError,
@@ -223,6 +227,10 @@ export interface KvDexSessionStorageOptions<
    * Defaults to `["__@innovatedev__", "fresh-session", "kvdex", "write-ahead-logging"]`.
    */
   walPrefix?: Deno.KvKey;
+  /**
+   * Optional custom logger. Defaults to global `console`.
+   */
+  logger?: SessionLogger;
 }
 
 /**
@@ -272,6 +280,7 @@ export class KvDexSessionStorage<
   #primaryIndexPrefix: Deno.KvKey = [];
   #secondaryIndexPrefix: Deno.KvKey = [];
   #walPrefix: Deno.KvKey;
+  #logger: SessionLogger;
 
   /**
    * Create a new Kvdex session storage instance.
@@ -294,6 +303,7 @@ export class KvDexSessionStorage<
     this.#dataValidator = options.dataValidator;
     this.#walPrefix = options.walPrefix ??
       ["__@innovatedev__", "fresh-session", "kvdex", "write-ahead-logging"];
+    this.#logger = options.logger ?? console;
 
     // Proactively validate that the collection belongs to the provided db schema
     // We do this by attempting to create an atomic builder (no commit needed)
@@ -583,7 +593,7 @@ export class KvDexSessionStorage<
       try {
         await this.#updateIndices(sessionId, oldDoc, newDoc, expireIn);
       } catch (error) {
-        console.error(
+        this.#logger.error(
           `[session] WAL sync failed for session ${sessionId}:`,
           error,
         );

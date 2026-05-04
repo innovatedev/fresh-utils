@@ -25,6 +25,8 @@ export const sessionConfig: SessionOptions = {
   //   // return user;
   // },
   // tokenPrefix: "Bearer ", // Optional (Default: "Bearer ")
+  // logger: console, // Optional custom logger
+  // onEvent: (event) => console.log(`[session] ${event.type}: ${event.sessionId}`),
 };
 
 export const session = createSessionMiddleware<State>(sessionConfig);

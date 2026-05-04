@@ -28,6 +28,8 @@ A flexible, secure session middleware for [Deno Fresh](https://fresh.deno.dev/)
 - **Secure Defaults**: HTTP-only, secure cookies, 128-bit session IDs.
 - **Session Security**: Optional User-Agent validation and IP tracking.
 - **CLI Init**: Easy setup tool.
+- **Benchmarks**: Formal performance suite for
+  [comparing storage backends](./bench/README.md).
 
 ## Installation
 

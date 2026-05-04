@@ -1,0 +1,139 @@
+{
+  "version": 1,
+  "runtime": "Deno/2.7.14 x86_64-unknown-linux-gnu",
+  "cpu": "Intel(R) Xeon(R) CPU E5-2667 v3 @ 3.20GHz",
+  "benches": [
+    {
+      "origin": "file:///home/user/code/innovatedev/fresh-utils/session/bench/store_bench.ts",
+      "group": null,
+      "name": "Store: Memory - set",
+      "baseline": false,
+      "results": [
+        {
+          "ok": {
+            "n": 20,
+            "min": 5049.166,
+            "max": 5278.0922,
+            "avg": 5126.001654999999,
+            "p75": 5181.8117,
+            "p99": 5278.0922,
+            "p995": 5278.0922,
+            "p999": 5278.0922,
+            "highPrecision": false,
+            "usedExplicitTimers": false
+          }
+        }
+      ]
+    },
+    {
+      "origin": "file:///home/user/code/innovatedev/fresh-utils/session/bench/store_bench.ts",
+      "group": null,
+      "name": "Store: Memory - get",
+      "baseline": false,
+      "results": [
+        {
+          "ok": {
+            "n": 73993,
+            "min": 6025.0,
+            "max": 184380.0,
+            "avg": 6759.0,
+            "p75": 6979.0,
+            "p99": 9440.0,
+            "p995": 12287.0,
+            "p999": 20960.0,
+            "highPrecision": true,
+            "usedExplicitTimers": false
+          }
+        }
+      ]
+    },
+    {
+      "origin": "file:///home/user/code/innovatedev/fresh-utils/session/bench/store_bench.ts",
+      "group": null,
+      "name": "Store: Deno KV - set",
+      "baseline": false,
+      "results": [
+        {
+          "ok": {
+            "n": 6113,
+            "min": 61410.0,
+            "max": 255151.0,
+            "avg": 81934.0,
+            "p75": 81180.0,
+            "p99": 105179.0,
+            "p995": 114769.0,
+            "p999": 198327.0,
+            "highPrecision": true,
+            "usedExplicitTimers": false
+          }
+        }
+      ]
+    },
+    {
+      "origin": "file:///home/user/code/innovatedev/fresh-utils/session/bench/store_bench.ts",
+      "group": null,
+      "name": "Store: Deno KV - get",
+      "baseline": false,
+      "results": [
+        {
+          "ok": {
+            "n": 5178,
+            "min": 84928.0,
+            "max": 302234.0,
+            "avg": 96753.0,
+            "p75": 98189.0,
+            "p99": 127764.0,
+            "p995": 164427.0,
+            "p999": 210897.0,
+            "highPrecision": true,
+            "usedExplicitTimers": false
+          }
+        }
+      ]
+    },
+    {
+      "origin": "file:///home/user/code/innovatedev/fresh-utils/session/bench/store_bench.ts",
+      "group": null,
+      "name": "Store: KvDex (with WAL) - set",
+      "baseline": false,
+      "results": [
+        {
+          "ok": {
+            "n": 1790,
+            "min": 245035.0,
+            "max": 556076.0,
+            "avg": 281015.0,
+            "p75": 286651.0,
+            "p99": 368640.0,
+            "p995": 389043.0,
+            "p999": 509096.0,
+            "highPrecision": true,
+            "usedExplicitTimers": false
+          }
+        }
+      ]
+    },
+    {
+      "origin": "file:///home/user/code/innovatedev/fresh-utils/session/bench/store_bench.ts",
+      "group": null,
+      "name": "Store: KvDex (with WAL) - get",
+      "baseline": false,
+      "results": [
+        {
+          "ok": {
+            "n": 4980,
+            "min": 86663.0,
+            "max": 321023.0,
+            "avg": 100671.0,
+            "p75": 101489.0,
+            "p99": 138098.0,
+            "p995": 153849.0,
+            "p999": 244778.0,
+            "highPrecision": true,
+            "usedExplicitTimers": false
+          }
+        }
+      ]
+    }
+  ]
+}

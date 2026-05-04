@@ -13,6 +13,7 @@ import {
   type SessionDoc,
   sessionModel,
 } from "../src/stores/kvdex.ts";
+import { SessionConflictError } from "../src/errors.ts";
 
 Deno.test("Resilience & Edge Cases", async (t) => {
   const kv = await Deno.openKv(":memory:");
@@ -129,16 +130,18 @@ Deno.test("Resilience & Edge Cases", async (t) => {
         version: "v1",
       }),
       set: () => {
-        throw new Error("Store Write Failed");
+        throw new SessionConflictError("Conflict");
       },
       delete: () => {},
     };
 
-    const middleware = createSessionMiddleware({ store: storage });
-
     const errors: string[] = [];
-    const originalWarn = console.warn;
-    console.warn = (msg: string) => errors.push(msg);
+    const logger = {
+      warn: (msg: string) => errors.push(msg),
+      error: (msg: string) => errors.push(msg),
+    };
+
+    const middleware = createSessionMiddleware({ store: storage, logger });
 
     const ctx = {
       req: { headers: new Headers({ cookie: `sessionId=${sessionId}` }) },
@@ -151,8 +154,6 @@ Deno.test("Resilience & Edge Cases", async (t) => {
     } as unknown as Context<State>;
 
     const response = await middleware(ctx);
-
-    console.warn = originalWarn;
 
     // Verify request completed successfully despite store failure
     expect(response.status).toBe(200);

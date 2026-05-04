@@ -9,6 +9,7 @@
 import type { Context } from "fresh";
 import { type Cookie, getCookies, setCookie } from "@std/http/cookie";
 import { CURRENT_SESSION_FORMAT_VERSION, migrate } from "./migrations.ts";
+import { SessionConflictError } from "./errors.ts";
 
 export type { Context };
 
@@ -47,7 +48,10 @@ export interface Session<TData = SessionData> {
    */
   update<T = TData>(
     transform: (data: T) => T | Promise<T>,
-    options?: { maxRetries?: number },
+    options?: {
+      maxRetries?: number;
+      onExhausted?: "warn" | "throw";
+    },
   ): Promise<UpdateResult<T>>;
 }
 
@@ -108,6 +112,18 @@ export type State<UserType = unknown, TData = SessionData> = {
    */
   hasFlash(key: string): boolean;
 };
+
+/**
+ * Interface for the library logger.
+ */
+export interface SessionLogger {
+  /** Log a warning message. */
+  warn(message: string, ...args: unknown[]): void;
+  /** Log an error message. */
+  error(message: string, ...args: unknown[]): void;
+  /** Log a debug message. */
+  debug?(message: string, ...args: unknown[]): void;
+}
 
 /**
  * Interface for session storage backends.
@@ -233,6 +249,11 @@ export interface SessionOptions<UserType = unknown, TData = SessionData> {
     sessionId: string;
     userId?: string;
   }) => void;
+  /**
+   * Optional custom logger for library events and errors.
+   * Defaults to global `console`.
+   */
+  logger?: SessionLogger;
 }
 
 /** Internal structure for stored sessions. */
@@ -293,6 +314,7 @@ export function createSessionMiddleware<
     "Lax" as Cookie["sameSite"];
   const sessionExpiry = options.expiry;
   const absoluteExpiry = options.absoluteExpiry;
+  const logger = options.logger ?? console;
 
   return async (ctx: Context<AppState>) => {
     // 1. API Token Flow (Stateless)
@@ -443,7 +465,7 @@ export function createSessionMiddleware<
       try {
         await options.store.delete(initialSessionId);
       } catch (error) {
-        console.error("[session] Store delete error during rotation:", error);
+        logger.error("[session] Store delete error during rotation:", error);
       }
       sessionId = generateSessionId();
       ctx.state.sessionId = sessionId;
@@ -465,9 +487,13 @@ export function createSessionMiddleware<
         if (prop === "update") {
           return async (
             transform: (data: TData) => TData | Promise<TData>,
-            updateOptions?: { maxRetries?: number },
+            updateOptions?: {
+              maxRetries?: number;
+              onExhausted?: "warn" | "throw";
+            },
           ): Promise<UpdateResult<TData>> => {
             const maxRetries = updateOptions?.maxRetries ?? 3;
+            const onExhausted = updateOptions?.onExhausted ?? "warn";
             let attempts = 0;
             while (attempts < maxRetries) {
               try {
@@ -498,7 +524,10 @@ export function createSessionMiddleware<
               } catch (error) {
                 attempts++;
                 if (attempts >= maxRetries) {
-                  console.error("[session] Update exhausted retries:", error);
+                  if (onExhausted === "throw") {
+                    throw error;
+                  }
+                  logger.warn("[session] Update exhausted retries:", error);
                   return { ok: false, reason: "exhausted" };
                 }
                 // Optional: small delay between retries
@@ -642,10 +671,16 @@ export function createSessionMiddleware<
           });
         }
       } catch (error) {
-        console.warn(
-          `[session] Optimistic locking failure for session ${sessionId}. Concurrent modification detected.`,
-          error,
-        );
+        if (error instanceof SessionConflictError) {
+          logger.warn(
+            `[session] Optimistic locking failure for session ${sessionId}. Concurrent modification detected.`,
+          );
+        } else {
+          logger.error(
+            `[session] Final save failed for session ${sessionId}:`,
+            error,
+          );
+        }
       }
     }
 

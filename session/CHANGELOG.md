@@ -47,10 +47,17 @@
 - **Memory Store Integrity**: Fixed a reference leakage bug in
   `MemorySessionStorage` by implementing `structuredClone` for reads and writes,
   ensuring concurrent in-memory requests don't mutate shared state.
+- **Observability (Logging)**: Introduced `SessionLogger` interface and `logger`
+  option to middleware and stores, allowing custom structured logging and
+  suppressing noise in production.
+- **Improved `session.update()`**: Added `onExhausted` strategy (`"warn"` or
+  `"throw"`) and improved retry reliability for concurrent mutations.
+- **Benchmark Suite**: Added a formal performance benchmark suite and captured a
+  v0.7.1 baseline for storage backend comparisons.
 - **Performance Optimization**: Optimized the middleware to avoid sending
   redundant `set-cookie` headers for stable, unchanged sessions.
-- **Source Hardening**: Hardened the core logic to correctly capture the initial
-  session ID and prevent unnecessary storage writes.
+- **Source Hardening**: Hardened the core logic to eliminate `any` casts,
+  ensuring strict type safety across the middleware proxy and migration engine.
 - **Testing (Hardened)**: Transformed the test suite into a production-grade
   framework with strictly typed `Context<State>`, property-based testing via
   `fast-check`, and adequacy-proving litmus tests.
