@@ -1,0 +1,218 @@
+{
+  "standard_version": "3.0",
+  "version": "0.8.0",
+  "timestamp": "2026-05-04T00:00:00Z",
+  "score": 92,
+  "rating": "Exceeds expectations",
+  "evaluator": "Claude Sonnet 4.6 (claude-code)",
+  "preset": "kvdex",
+  "design_system": "vanilla-tailwind",
+  "notes": "Score reflects post-fix state. Seven bugs were identified and resolved prior to evaluation (see findings array). DX criterion weights sum to 25 against a domain max of 22 — inconsistency in standard v3.0; DX score capped at 22.",
+  "domains": {
+    "security": { "score": 33, "max": 35 },
+    "correctness": { "score": 19, "max": 25 },
+    "performance": { "score": 18, "max": 18 },
+    "dx": { "score": 22, "max": 22 }
+  },
+  "findings": [
+    {
+      "criterion": "Session ID generation",
+      "domain": "security",
+      "score": 4,
+      "max_score": 4,
+      "weighted_pts": 10,
+      "evidence": "session.ts:377–381 — crypto.getRandomValues(new Uint8Array(16)), 128 bits, hex-encoded to 32 chars",
+      "notes": "CSPRNG confirmed. Test: security_perf.test.ts:12–35 — asserts length 32, format /^[0-9a-f]{32}$/, and uniqueness over 100 samples."
+    },
+    {
+      "criterion": "Transport security",
+      "domain": "security",
+      "score": 3,
+      "max_score": 4,
+      "weighted_pts": 7,
+      "evidence": "session.ts:406–409 — httpOnly: true, secure: true, sameSite: 'Lax' defaults. Runtime cookie: Secure; HttpOnly; SameSite=Lax confirmed.",
+      "notes": "Defaults are correct. Deducted 1: no documentation recommendation for SameSite=Strict as a more restrictive option; standard exceeds mark requires call-out of stricter alternatives."
+    },
+    {
+      "criterion": "Session invalidation",
+      "domain": "security",
+      "score": 4,
+      "max_score": 4,
+      "weighted_pts": 9,
+      "evidence": "session.ts:603–608 (idle timeout), session.ts:611–616 (absolute timeout). Tests: security_perf.test.ts:37–83 (idle), security_perf.test.ts:135–198 (absolute). Runtime: old cookie blocked post-logout confirmed.",
+      "notes": "All three modes (explicit logout, idle, absolute) enforced server-side. Expired sessions deleted from store. RT cycle verified."
+    },
+    {
+      "criterion": "Fixation protection",
+      "domain": "security",
+      "score": 4,
+      "max_score": 4,
+      "weighted_pts": 7,
+      "evidence": "session.ts:636–651 — rotateSession() deletes old ID, generates new ID, sets forceSave. Test: security_perf.test.ts:200–242 — deleteCalled=true, savedId !== 'old-id'.",
+      "notes": "Rotation triggered automatically by login() helper. Old ID invalidated via store.delete() before response. RT verified: session IDs differ before and after login."
+    },
+    {
+      "criterion": "Concurrency safety",
+      "domain": "correctness",
+      "score": 3,
+      "max_score": 4,
+      "weighted_pts": 6,
+      "evidence": "kvdex.ts:480 — atomic.check({ key: idKey, versionstamp: version }). kvdex.ts:501 — throws SessionConflictError on mismatch. concurrency.test.ts:6 (KvDex OCC). security_perf.test.ts:244–311 (MemorySessionStorage OCC).",
+      "notes": "OCC implemented across all three stores. Deducted 1: MemorySessionStorage concurrent test (security_perf.test.ts:303) explicitly acknowledges it cannot deterministically verify one request was rejected — relies on final version check only."
+    },
+    {
+      "criterion": "Crash resilience",
+      "domain": "correctness",
+      "score": 3,
+      "max_score": 4,
+      "weighted_pts": 8,
+      "evidence": "kvdex.ts:350 — #syncWal() on construction. kvdex.ts:485–486 — WAL written before index updates. kvdex.ts:575–580 — WAL cleared only after Promise.all resolves. wal.test.ts — 'should recover orphaned WAL records on startup' and 'should handle partial sync failures and preserve WAL'.",
+      "notes": "WAL design is sound and tested. Deducted 1: WAL tests verify WAL deletion and preservation but do not assert that recovered index state is functionally correct end-to-end (no post-recovery read assertion). KV store relies on Deno KV native durability (acceptable)."
+    },
+    {
+      "criterion": "Persistence correctness",
+      "domain": "correctness",
+      "score": 3,
+      "max_score": 4,
+      "weighted_pts": 5,
+      "evidence": "session.test.ts, kvdex_store.test.ts, kv_store.test.ts — write-then-read covered per store.",
+      "notes": "Deducted 1: no single test covering the full matrix specified by the standard (write then read, restart then read, concurrent write then read). MemorySessionStorage restart behavior is documented (intentionally non-persistent) but not asserted via test."
+    },
+    {
+      "criterion": "Store I/O efficiency",
+      "domain": "performance",
+      "score": 4,
+      "max_score": 4,
+      "weighted_pts": 9,
+      "evidence": "session.ts:838–839 (JSON diff dirty check). session.ts:842–843 (lastSeenAt throttle: only write if >60s since last update). Test: security_perf.test.ts:85–133 — setCalls=0 on unchanged session, setCalls=1 on change.",
+      "notes": "Single store.get per request. Write-on-change enforced and tested. lastSeen refresh throttled to 1-minute intervals."
+    },
+    {
+      "criterion": "Store pluggability",
+      "domain": "performance",
+      "score": 4,
+      "max_score": 4,
+      "weighted_pts": 9,
+      "evidence": "session.ts:153–218 — SessionStorage interface with get/set/delete + optional getSessionsForUser/revokeSession. storeSupports() type guard at session.ts:215–218. Three adapters: memory.ts, kv.ts, kvdex.ts. kvdex.ts:296 — hard startup fail if db missing.",
+      "notes": "Explicit interface contract with JSDoc. Optional capabilities discoverable via type guard. Misconfiguration caught at startup, not at request time."
+    },
+    {
+      "criterion": "Flash / one-time data",
+      "domain": "dx",
+      "score": 3,
+      "max_score": 4,
+      "weighted_pts": 3,
+      "evidence": "session.ts:735–825 — flash set/consume/cleanup. session_flash.test.ts — 3-step test: set → consume → verify gone. repro_flash.test.ts — additional persistence test.",
+      "notes": "Deducted 1: standard requires testing across a real HTTP redirect cycle. Tests use direct middleware invocations with the cookie header rather than an actual redirect chain. Behavior is functionally equivalent but technically does not meet the letter of the standard."
+    },
+    {
+      "criterion": "Ease of use",
+      "domain": "dx",
+      "score": 4,
+      "max_score": 4,
+      "weighted_pts": 4,
+      "evidence": "Init script scaffolds complete boilerplate. Session proxy provides direct property access. login()/logout()/session.update() cover the common operations.",
+      "notes": "Happy path documented in README. Footguns (e.g. MemorySessionStorage in production) now surfaced via console.warn in generated template."
+    },
+    {
+      "criterion": "Typed session data",
+      "domain": "dx",
+      "score": 4,
+      "max_score": 4,
+      "weighted_pts": 4,
+      "evidence": "session.ts:395–401 — createSessionMiddleware<AppState, UserType, TData>(). kvdex.ts:89–114 (StandardSchemaV1 interface), kvdex.ts:157 — sessionModel(validator) for runtime shape validation. No any casts in generated config (verified Section 4).",
+      "notes": "Type flows from config through proxy to handler access. Runtime validation available via StandardSchemaV1 (zod, valibot, arktype compatible)."
+    },
+    {
+      "criterion": "Configuration ergonomics",
+      "domain": "dx",
+      "score": 3,
+      "max_score": 4,
+      "weighted_pts": 3,
+      "evidence": "session.ts:406–409 (secure defaults). session.ts:414–436 (startup validation with SessionConfigError). Generated templates include expiry. absoluteExpiry commented out in templates.",
+      "notes": "Deducted 1: absoluteExpiry is opt-in only (commented in generated template). Default-generated app has no hard session lifetime cap unless developer uncomments it. All other defaults are secure."
+    },
+    {
+      "criterion": "Middleware composability",
+      "domain": "dx",
+      "score": 4,
+      "max_score": 4,
+      "weighted_pts": 3,
+      "evidence": "session.ts:296 — onEvent hook (create/rotate/refresh/expire/destroy). Clean Fresh v2 middleware chain integration. No hidden state coupling.",
+      "notes": "Lifecycle events cover all meaningful session state transitions. Usable without modifying middleware internals."
+    },
+    {
+      "criterion": "Diagnostics & logging",
+      "domain": "dx",
+      "score": 4,
+      "max_score": 4,
+      "weighted_pts": 2,
+      "evidence": "session.ts:141 — SessionLogger interface (warn, error). session.ts:412 — logger bound at startup via options.logger ?? console. session.ts:623 — logger.error for store errors (fixed from console.error this run).",
+      "notes": "warn used for OCC conflicts (recoverable), error used for store failures (data loss risk). No session payload appears in any log call. Debug logging is absent rather than gated — neutral for this standard."
+    },
+    {
+      "criterion": "Migration & versioning",
+      "domain": "dx",
+      "score": 4,
+      "max_score": 4,
+      "weighted_pts": 4,
+      "evidence": "migrations.ts — MIDDLEWARE_SCHEMA_VERSION=1, v0→v1 migration. session.ts:415–436 — startup gap detection. session_migration_test.ts — sequential migration, async migration, onUnknownVersion (invalidate/reset/keep), forceWriteOnMigration. ADR-0004.",
+      "notes": "Dual-layer versioning (__v + __appV) is a clear design strength. All migration paths tested. Unknown-future-version strategies documented and tested."
+    }
+  ],
+  "automaticFailureConditions": {
+    "insufficientEntropy": "PASS",
+    "noServerSideInvalidation": "PASS",
+    "fixationVulnerability": "PASS",
+    "plaintextStorage": "PASS",
+    "noAbsoluteExpiry": "PASS — close call: absoluteExpiry option exists and is tested (security_perf.test.ts:135–198) but is commented out in all generated templates. Default app has no hard session lifetime cap until developer opts in.",
+    "lastWriteWinsWithNoConflictDetection": "PASS",
+    "claimedBehaviorWithNoTestCoverage": "PASS"
+  },
+  "bugsResolvedThisRun": [
+    {
+      "severity": "critical",
+      "description": "All generated apps crashed at startup: migrate.version=0 rejected by session.ts:417. Fixed via migrationConfig conditional export in session.migrate.ts template.",
+      "files": [
+        "session/src/init/templates/config/session.migrate.ts",
+        "session/src/init/templates/config/kvdex.ts",
+        "session/src/init/templates/config/kv.ts",
+        "session/src/init/templates/config/memory.ts"
+      ]
+    },
+    {
+      "severity": "bug",
+      "description": "console.error at session.ts:623 bypassed custom logger. Fixed to logger.error.",
+      "files": ["session/src/session.ts"]
+    },
+    {
+      "severity": "security",
+      "description": "kv and memory templates had no server-side idle expiry. All templates now include expiry option.",
+      "files": [
+        "session/src/init/templates/config/kvdex.ts",
+        "session/src/init/templates/config/kv.ts",
+        "session/src/init/templates/config/memory.ts"
+      ]
+    },
+    {
+      "severity": "dx",
+      "description": "MemorySessionStorage template had no production warning. Added console.warn at module scope.",
+      "files": ["session/src/init/templates/config/memory.ts"]
+    },
+    {
+      "severity": "performance",
+      "description": "ua and ip were secondary indices in KvDex session collection (high-cardinality, not lookup fields). Removed from sessionIndices.",
+      "files": ["session/src/init/commands/init.ts"]
+    },
+    {
+      "severity": "maintenance",
+      "description": "introspection_test.ts imported from deno.land/std@0.208.0. Updated to jsr:@std/assert@^1.0.0.",
+      "files": ["session/tests/introspection_test.ts"]
+    },
+    {
+      "severity": "maintenance",
+      "description": "Duplicate assignment in init_integration.test.ts (dead code). Removed.",
+      "files": ["session/tests/init_integration.test.ts"]
+    }
+  ]
+}

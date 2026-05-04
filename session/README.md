@@ -28,6 +28,8 @@ A flexible, secure session middleware for [Deno Fresh](https://fresh.deno.dev/)
 - **Secure Defaults**: HTTP-only, secure cookies, 128-bit session IDs.
 - **Session Security**: Optional User-Agent validation and IP tracking.
 - **CLI Init**: Easy setup tool.
+- **Benchmarks**: Formal performance suite for
+  [comparing storage backends](./bench/README.md).
 
 ## Installation
 
@@ -255,6 +257,81 @@ export const handler = define.handlers({
   },
 });
 ```
+
+## Schema Evolution & Migrations
+
+As your application grows, your session data schema will inevitably change.
+`fresh-session` provides a robust, dual-layer versioning system to manage these
+changes without losing user data.
+
+### Dual-Layer Versioning
+
+Two independent versioning systems coexist in every session record:
+
+1. **Middleware Version (`__v`)**: Managed entirely by the package. This ensures
+   your sessions remain compatible with library updates.
+2. **Application Version (`__appV`)**: Managed by you. This allows you to
+   migrate your own session data (e.g., renaming fields, restructuring objects).
+
+### Configuring Migrations
+
+Define a migration chain in your session configuration. Migrations are functions
+that take the session data from the previous version and return the data for the
+new version.
+
+```typescript
+// config/session.ts
+export const session = createSessionMiddleware<State>({
+  store: new DenoKvSessionStorage(),
+  migrate: {
+    version: 2, // Current application version
+    migrations: {
+      // Migrate from v0 (missing version) to v1
+      1: (data) => {
+        // data is 'unknown' - cast safely to previous version
+        const old = data as { username: string };
+        return {
+          email: old.username, // Rename field
+          settings: { theme: "light" }, // Add defaults
+        };
+      },
+      // Migrate from v1 to v2
+      2: (data) => {
+        const old = data as { email: string; settings: { theme: string } };
+        return {
+          ...old,
+          settings: {
+            ...old.settings,
+            notifications: true, // Add new setting
+          },
+        };
+      },
+    },
+    // Policy for sessions from "the future" (e.g. rollback situations)
+    // "invalidate" (default) | "reset" | "keep"
+    onUnknownVersion: "invalidate",
+    // Optional: immediately write back migrated records to the store
+    // forceWriteOnMigration: true,
+  },
+});
+```
+
+**Key Features:**
+
+- **Sequential Execution**: Migrations run sequentially (e.g., v0 -> v1 -> v2)
+  to bring the record to the target version.
+- **Async Support**: Migration functions can be `async`.
+  - [!WARNING]
+  - **Async migrations** should only be used for pure transformations (e.g.
+    > hashing a field). Avoid external reads (DB, APIs) inside migrations, as
+    > these will not be automatically refreshed if a concurrent write triggers a
+    > retry.
+- **Lazy Persistence**: Migrations happen in-memory when the session is read.
+  The store is only updated when the session is naturally modified during the
+  request, avoiding unnecessary write I/O. Use `forceWriteOnMigration: true` to
+  override this behavior.
+- **Fail-Closed Security**: If a migration function throws an error, the session
+  is invalidated to prevent data corruption.
 
 ## Known Limitations
 

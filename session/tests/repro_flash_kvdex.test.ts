@@ -24,6 +24,7 @@ Deno.test("KvDexSessionStorage - Flash Message Persistence", async (_t) => {
 
   // 1. Set initial session with flash message
   await store.set(sessionId, {
+    __v: 1,
     data: {},
     flash: { [flashKey]: flashMsg },
     lastSeenAt: Date.now(),
@@ -37,6 +38,7 @@ Deno.test("KvDexSessionStorage - Flash Message Persistence", async (_t) => {
   // 2. Update session WITHOUT flash message (simulating consumption cleanup)
   // The middleware calls set() with the cleaned state.
   await store.set(sessionId, {
+    __v: 1,
     data: {},
     flash: {}, // Empty flash
     lastSeenAt: Date.now(),

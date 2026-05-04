@@ -11,6 +11,7 @@ Deno.test("Session Middleware - Flash Message Persistence", async (t) => {
 
   const storage: SessionStorage = {
     get: (_id) => ({
+      __v: 1,
       data: {},
       flash: { [flashKey]: flashMsg },
       lastSeenAt: Date.now(),

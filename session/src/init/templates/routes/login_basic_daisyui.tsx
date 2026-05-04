@@ -51,7 +51,7 @@ export default define.page( // deno-lint-ignore no-explicit-any
               </div>
             )}
 
-            <form method="POST" class="space-y-6">
+            <form method="POST" class="flex flex-col gap-6">
               {/* {{LOGIN_FIELDS}} */}
 
               <div>

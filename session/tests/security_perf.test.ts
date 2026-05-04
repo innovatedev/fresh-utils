@@ -1,29 +1,37 @@
 import { expect } from "./deps.ts";
 import { getSetCookies } from "@std/http/cookie";
 import {
+  type Context,
   createSessionMiddleware,
   type SessionStorage,
+  type State,
+  type StoredSession,
 } from "../src/session.ts";
 import { MemorySessionStorage } from "../src/stores/memory.ts";
 
-Deno.test("Security: 128-bit Entropy", async () => {
+Deno.test("Security: 128-bit Entropy and Collision Resistance", async () => {
   const store = new MemorySessionStorage();
   const middleware = createSessionMiddleware({ store });
+  const ids = new Set<string>();
 
-  // deno-lint-ignore no-explicit-any
-  const ctx: any = {
-    req: new Request("http://localhost/"),
-    state: {},
-    next: () => Promise.resolve(new Response("OK")),
-  };
+  for (let i = 0; i < 100; i++) {
+    const ctx = {
+      req: new Request("http://localhost/"),
+      state: {} as State,
+      next: () => Promise.resolve(new Response("OK")),
+    } as unknown as Context<State>;
 
-  const res = await middleware(ctx);
-  const cookies = getSetCookies(res.headers);
-  const sessionId = cookies.find((c) => c.name === "sessionId")!.value;
+    const res = await middleware(ctx);
+    const cookies = getSetCookies(res.headers);
+    const sessionId = cookies.find((c) => c.name === "sessionId")!.value;
 
-  // 128 bits = 16 bytes = 32 hex characters
-  expect(sessionId.length).toEqual(32);
-  expect(/^[0-9a-f]{32}$/.test(sessionId)).toBe(true);
+    // 128 bits = 16 bytes = 32 hex characters
+    expect(sessionId.length).toEqual(32);
+    expect(/^[0-9a-f]{32}$/.test(sessionId)).toBe(true);
+
+    expect(ids.has(sessionId)).toBe(false);
+    ids.add(sessionId);
+  }
 });
 
 Deno.test("Security: Server-side Expiry Enforcement", async (t) => {
@@ -35,15 +43,15 @@ Deno.test("Security: Server-side Expiry Enforcement", async (t) => {
   let savedId: string;
 
   await t.step("Create session", async () => {
-    // deno-lint-ignore no-explicit-any
-    const ctx: any = {
+    const ctx = {
       req: new Request("http://localhost/"),
-      state: {},
+      state: {} as State,
       next: () => {
         ctx.state.session.foo = "bar";
         return Promise.resolve(new Response("OK"));
       },
-    };
+    } as unknown as Context<State>;
+
     const res = await middleware(ctx);
     savedId = getSetCookies(res.headers).find((c) =>
       c.name === "sessionId"
@@ -55,14 +63,13 @@ Deno.test("Security: Server-side Expiry Enforcement", async (t) => {
   });
 
   await t.step("Verify invalidation", async () => {
-    // deno-lint-ignore no-explicit-any
-    const ctx: any = {
+    const ctx = {
       req: new Request("http://localhost/", {
         headers: { Cookie: `sessionId=${savedId}` },
       }),
-      state: {},
+      state: {} as State,
       next: () => Promise.resolve(new Response("OK")),
-    };
+    } as unknown as Context<State>;
 
     const res = await middleware(ctx);
     const newId = getSetCookies(res.headers).find((c) =>
@@ -79,6 +86,7 @@ Deno.test("Performance: Write-on-change", async (t) => {
   let setCalls = 0;
   const store: SessionStorage = {
     get: () => ({
+      __v: 1,
       data: { foo: "bar" },
       flash: {},
       lastSeenAt: Date.now(),
@@ -93,30 +101,32 @@ Deno.test("Performance: Write-on-change", async (t) => {
   const middleware = createSessionMiddleware({ store });
 
   await t.step("No change = No write (within 1 minute)", async () => {
-    // deno-lint-ignore no-explicit-any
-    const ctx: any = {
+    const ctx = {
       req: new Request("http://localhost/", {
         headers: { Cookie: `sessionId=test` },
       }),
-      state: {},
+      state: {} as State,
       next: () => Promise.resolve(new Response("OK")),
-    };
-    await middleware(ctx);
+    } as unknown as Context<State>;
+    const res = await middleware(ctx);
     expect(setCalls).toEqual(0);
+
+    // Negative assertion: No set-cookie header should be sent if session is stable
+    const cookies = getSetCookies(res.headers);
+    expect(cookies.find((c) => c.name === "sessionId")).toBeUndefined();
   });
 
   await t.step("Data change = Write", async () => {
-    // deno-lint-ignore no-explicit-any
-    const ctx: any = {
+    const ctx = {
       req: new Request("http://localhost/", {
         headers: { Cookie: `sessionId=test` },
       }),
-      state: {},
+      state: {} as State,
       next: () => {
         ctx.state.session.foo = "changed";
         return Promise.resolve(new Response("OK"));
       },
-    };
+    } as unknown as Context<State>;
     await middleware(ctx);
     expect(setCalls).toEqual(1);
   });
@@ -131,15 +141,14 @@ Deno.test("Security: Absolute Expiry Enforcement", async (t) => {
   let savedId: string;
 
   await t.step("Create session", async () => {
-    // deno-lint-ignore no-explicit-any
-    const ctx: any = {
+    const ctx = {
       req: new Request("http://localhost/"),
-      state: {},
+      state: {} as State,
       next: () => {
         ctx.state.session.foo = "bar";
         return Promise.resolve(new Response("OK"));
       },
-    };
+    } as unknown as Context<State>;
     const res = await middleware(ctx);
     savedId = getSetCookies(res.headers).find((c) =>
       c.name === "sessionId"
@@ -147,14 +156,17 @@ Deno.test("Security: Absolute Expiry Enforcement", async (t) => {
   });
 
   await t.step("Keep active (within absolute limit)", async () => {
-    // deno-lint-ignore no-explicit-any
-    const ctx: any = {
+    const ctx = {
       req: new Request("http://localhost/", {
         headers: { Cookie: `sessionId=${savedId}` },
       }),
-      state: {},
-      next: () => Promise.resolve(new Response("OK")),
-    };
+      state: {} as State,
+      next: () => {
+        // deno-lint-ignore no-explicit-any
+        (ctx.state.session as any).touched = true; // Trigger write to see cookie
+        return Promise.resolve(new Response("OK"));
+      },
+    } as unknown as Context<State>;
     const res = await middleware(ctx);
     const id = getSetCookies(res.headers).find((c) =>
       c.name === "sessionId"
@@ -167,14 +179,13 @@ Deno.test("Security: Absolute Expiry Enforcement", async (t) => {
   });
 
   await t.step("Verify invalidation (even if recently seen)", async () => {
-    // deno-lint-ignore no-explicit-any
-    const ctx: any = {
+    const ctx = {
       req: new Request("http://localhost/", {
         headers: { Cookie: `sessionId=${savedId}` },
       }),
-      state: {},
+      state: {} as State,
       next: () => Promise.resolve(new Response("OK")),
-    };
+    } as unknown as Context<State>;
 
     const res = await middleware(ctx);
     const newId = getSetCookies(res.headers).find((c) =>
@@ -193,6 +204,7 @@ Deno.test("Correctness: Rotation Safety", async () => {
 
   const store: SessionStorage = {
     get: (_id: string) => ({
+      __v: 1,
       data: { user: "test" },
       flash: {},
       lastSeenAt: Date.now(),
@@ -209,18 +221,17 @@ Deno.test("Correctness: Rotation Safety", async () => {
 
   const middleware = createSessionMiddleware({ store });
 
-  // deno-lint-ignore no-explicit-any
-  const ctx: any = {
+  const ctx = {
     req: new Request("http://localhost/", {
       headers: { Cookie: `sessionId=old-id` },
     }),
-    state: {},
+    state: {} as State,
     next: async () => {
       // Manually trigger rotation without changing data
       await ctx.state.login("new-user", { user: "test" });
       return new Response("OK");
     },
-  };
+  } as unknown as Context<State>;
 
   await middleware(ctx);
 
@@ -237,6 +248,7 @@ Deno.test("Correctness: Optimistic Locking Collision", async (t) => {
   const sessionId = "test-collision";
   // Pre-seed the session
   store.set(sessionId, {
+    __v: 1,
     data: { counter: 0 },
     flash: {},
     createdAt: Date.now(),
@@ -245,30 +257,28 @@ Deno.test("Correctness: Optimistic Locking Collision", async (t) => {
 
   await t.step("Concurrent Reads and Conflicting Writes", async () => {
     // Simulate Request A
-    // deno-lint-ignore no-explicit-any
-    const ctxA: any = {
+    const ctxA = {
       req: new Request("http://localhost/", {
         headers: { Cookie: `sessionId=${sessionId}` },
       }),
-      state: {},
+      state: {} as State,
       next: () => {
         ctxA.state.session.counter = 1;
         return Promise.resolve(new Response("OK"));
       },
-    };
+    } as unknown as Context<State>;
 
     // Simulate Request B (started after A reads, but before A saves)
-    // deno-lint-ignore no-explicit-any
-    const ctxB: any = {
+    const ctxB = {
       req: new Request("http://localhost/", {
         headers: { Cookie: `sessionId=${sessionId}` },
       }),
-      state: {},
+      state: {} as State,
       next: () => {
         ctxB.state.session.counter = 2;
         return Promise.resolve(new Response("OK"));
       },
-    };
+    } as unknown as Context<State>;
 
     // We expect a console.warn during collision
     const originalWarn = console.warn;
@@ -285,8 +295,7 @@ Deno.test("Correctness: Optimistic Locking Collision", async (t) => {
     console.warn = originalWarn;
 
     const finalData = store.get(sessionId);
-    // deno-lint-ignore no-explicit-any
-    const counter = (finalData as any)?.data?.counter;
+    const counter = (finalData as StoredSession)?.data?.counter;
 
     // One must have won, and the other must have failed.
     // The final value should be EITHER 1 or 2, depending on which saved first.

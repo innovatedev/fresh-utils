@@ -1,6 +1,11 @@
 import { expect } from "./deps.ts";
 import { getSetCookies } from "@std/http/cookie";
-import { createSessionMiddleware } from "../src/mod.ts";
+import {
+  type Context,
+  createSessionMiddleware,
+  type State,
+  type StoredSession,
+} from "../src/mod.ts";
 import { MemorySessionStorage } from "../src/stores/memory.ts";
 
 const sessionStore = new MemorySessionStorage();
@@ -10,15 +15,15 @@ Deno.test("Integration: Session persistence real flow", async (t) => {
   let savedSessionId: string | undefined;
 
   await t.step("Step 1: Set Session Data", async () => {
-    const ctx1: any = {
+    const ctx1 = {
       req: new Request("http://localhost/"),
-      state: {},
+      state: {} as State,
       next: () => {
         // Simulate handler setting data
         ctx1.state.session.name = "Alice";
         return Promise.resolve(new Response("Body 1"));
       },
-    };
+    } as unknown as Context<State>;
 
     const res1 = await sessionMiddleware(ctx1);
     const cookies = getSetCookies(res1.headers);
@@ -31,18 +36,18 @@ Deno.test("Integration: Session persistence real flow", async (t) => {
   await t.step("Step 2: Read Session Data", async () => {
     expect(savedSessionId).toBeDefined();
 
-    const ctx2: any = {
+    const ctx2 = {
       req: new Request("http://localhost/", {
         headers: { Cookie: `sessionId=${savedSessionId}` },
       }),
-      state: {},
+      state: {} as State,
       next: () => {
         // Simulate handler reading data
         return Promise.resolve(
           new Response(`Hello, ${ctx2.state.session.name}`),
         );
       },
-    };
+    } as unknown as Context<State>;
 
     const res2 = await sessionMiddleware(ctx2);
     const text = await res2.text();
@@ -51,18 +56,18 @@ Deno.test("Integration: Session persistence real flow", async (t) => {
   });
 
   await t.step("Step 3: Rotate Session", async () => {
-    const ctx3: any = {
+    const ctx3 = {
       req: new Request("http://localhost/", {
         headers: { Cookie: `sessionId=${savedSessionId}` },
       }),
-      state: {}, // Initial state will be hydrated by middleware
+      state: {} as State, // Initial state will be hydrated by middleware
       next: () => {
         // Simulate handler requesting rotation by changing ID
         // Note: The middleware overwrites this value with a secure one.
         ctx3.state.sessionId = "unsafe-login-id";
         return Promise.resolve(new Response("Rotated"));
       },
-    };
+    } as unknown as Context<State>;
 
     const res3 = await sessionMiddleware(ctx3);
     const cookies = getSetCookies(res3.headers);
@@ -81,13 +86,13 @@ Deno.test("Integration: Session persistence real flow", async (t) => {
     // Ideally we'd check the store, but we can't access it here.
     // We can verify by making a request with the old ID and seeing empty session.
 
-    const ctxOld: any = {
+    const ctxOld = {
       req: new Request("http://localhost/", {
         headers: { Cookie: `sessionId=${savedSessionId}` },
       }),
-      state: {},
+      state: {} as State,
       next: () => Promise.resolve(new Response("Check")),
-    };
+    } as unknown as Context<State>;
     await sessionMiddleware(ctxOld);
     // Should be empty/new session because old key was deleted
     expect(ctxOld.state.session.name).toBeUndefined();
@@ -96,13 +101,13 @@ Deno.test("Integration: Session persistence real flow", async (t) => {
 
   await t.step("Step 4: Recover from Invalid Session", async () => {
     const bogusId = "non-existent-session-id";
-    const ctx4: any = {
+    const ctx4 = {
       req: new Request("http://localhost/", {
         headers: { Cookie: `sessionId=${bogusId}` },
       }),
-      state: {},
+      state: {} as State,
       next: () => Promise.resolve(new Response("Recovery")),
-    };
+    } as unknown as Context<State>;
 
     const res4 = await sessionMiddleware(ctx4);
     const cookies = getSetCookies(res4.headers);
@@ -121,16 +126,16 @@ Deno.test("Integration: Session persistence real flow", async (t) => {
   await t.step("Step 5: Logout", async () => {
     // Reuse savedSessionId if available, or just mock one since logout shouldn't care
     const oldId = savedSessionId || "some-old-id";
-    const ctx5: any = {
+    const ctx5 = {
       req: new Request("http://localhost/", {
         headers: { Cookie: `sessionId=${oldId}` },
       }),
-      state: {},
+      state: {} as State,
       next: () => {
         ctx5.state.logout();
         return Promise.resolve(new Response("Logged out"));
       },
-    };
+    } as unknown as Context<State>;
 
     const res5 = await sessionMiddleware(ctx5);
     const cookies = getSetCookies(res5.headers);
@@ -162,19 +167,19 @@ Deno.test("Integration: Session Security (UA/IP)", async (t) => {
   let savedId: string;
 
   await t.step("Step 1: Create Session with UA/IP", async () => {
-    const ctx: any = {
+    const ctx = {
       req: new Request("http://localhost/", {
         headers: { "User-Agent": "Chrome/9000" },
       }),
       info: {
         remoteAddr: { hostname: "1.2.3.4", port: 1234, transport: "tcp" },
       },
-      state: {},
+      state: {} as State,
       next: () => {
         ctx.state.session.foo = "bar";
         return Promise.resolve(new Response("OK"));
       },
-    };
+    } as unknown as Context<State>;
 
     const res = await middleware(ctx);
     const cookies = getSetCookies(res.headers);
@@ -183,13 +188,13 @@ Deno.test("Integration: Session Security (UA/IP)", async (t) => {
     expect(savedId).toBeDefined();
 
     // Verify internally that it's stored (white-box test via store)
-    const stored = await store.get(savedId) as any;
+    const stored = await store.get(savedId) as StoredSession;
     expect(stored.ua).toEqual("Chrome/9000");
     expect(stored.ip).toEqual("1.2.3.4");
   });
 
   await t.step("Step 2: Validate UA Match (Success)", async () => {
-    const ctx: any = {
+    const ctx = {
       req: new Request("http://localhost/", {
         headers: {
           "Cookie": `sessionId=${savedId}`,
@@ -199,9 +204,9 @@ Deno.test("Integration: Session Security (UA/IP)", async (t) => {
       info: {
         remoteAddr: { hostname: "1.2.3.4", port: 1234, transport: "tcp" },
       },
-      state: {},
+      state: {} as State,
       next: () => Promise.resolve(new Response("OK")),
-    };
+    } as unknown as Context<State>;
 
     await middleware(ctx);
     // Session should be preserved
@@ -210,7 +215,7 @@ Deno.test("Integration: Session Security (UA/IP)", async (t) => {
   });
 
   await t.step("Step 3: Validate UA Mismatch (Invalidation)", async () => {
-    const ctx: any = {
+    const ctx = {
       req: new Request("http://localhost/", {
         headers: {
           "Cookie": `sessionId=${savedId}`,
@@ -220,9 +225,9 @@ Deno.test("Integration: Session Security (UA/IP)", async (t) => {
       info: {
         remoteAddr: { hostname: "1.2.3.4", port: 1234, transport: "tcp" },
       },
-      state: {},
+      state: {} as State,
       next: () => Promise.resolve(new Response("OK")),
-    };
+    } as unknown as Context<State>;
 
     const res = await middleware(ctx);
     const cookies = getSetCookies(res.headers);
@@ -243,19 +248,19 @@ Deno.test("Integration: Session Security (Custom IP Header)", async (t) => {
   const middleware = createSessionMiddleware(options);
 
   await t.step("Step 1: Capture IP from Header", async () => {
-    const ctx: any = {
+    const ctx = {
       req: new Request("http://localhost/", {
         headers: { "X-Forwarded-For": "203.0.113.195" },
       }),
       info: {
         remoteAddr: { hostname: "1.2.3.4", port: 1234, transport: "tcp" },
       }, // Should be ignored
-      state: {},
+      state: {} as State,
       next: () => {
         ctx.state.session.foo = "bar";
         return Promise.resolve(new Response("OK"));
       },
-    };
+    } as unknown as Context<State>;
 
     const res = await middleware(ctx);
     const cookies = getSetCookies(res.headers);
@@ -264,7 +269,7 @@ Deno.test("Integration: Session Security (Custom IP Header)", async (t) => {
     expect(savedId).toBeDefined();
 
     // Verify internally
-    const stored = await store.get(savedId) as any;
+    const stored = await store.get(savedId) as StoredSession;
     expect(stored.ip).toEqual("203.0.113.195");
     // Should NOT match the remoteAddr
     expect(stored.ip).not.toEqual("1.2.3.4");

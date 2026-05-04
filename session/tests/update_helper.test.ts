@@ -24,6 +24,7 @@ Deno.test("Session.update() Helper", async (t) => {
 
   // Pre-seed the session
   await store.set(sessionId, {
+    __v: 1,
     data: { count: 10 },
     flash: {},
     createdAt: Date.now(),
@@ -65,6 +66,7 @@ Deno.test("Session.update() Helper", async (t) => {
           if (callCount === 1) {
             // Simulate a concurrent write happening RIGHT NOW
             await store.set(sessionId, {
+              __v: 1,
               data: { count: 100 },
               flash: {},
               createdAt: Date.now(),
@@ -93,12 +95,18 @@ Deno.test("Session.update() Helper", async (t) => {
   });
 
   await t.step("should return exhausted if maxRetries exceeded", async () => {
+    // Use a silent logger to avoid polluting test output — the warn is expected behavior
+    const silentMiddleware = createSessionMiddleware({
+      store,
+      logger: { warn: () => {}, error: () => {} },
+    });
+
     const ctx: any = {
       req: { headers: new Headers({ cookie: `sessionId=${sessionId}` }) },
       info: { remoteAddr: { hostname: "127.0.0.1" } },
       state: {},
       next: async () => {
-        const result = await ctx.state.session.update((data: any) => {
+        const _result = await ctx.state.session.update((data: any) => {
           // Always cause a conflict by updating the store manually
           // (This is a bit tricky to simulate perfectly without mocking store.set to always fail)
           return data;
@@ -121,12 +129,7 @@ Deno.test("Session.update() Helper", async (t) => {
       },
     };
 
-    const originalError = console.error;
-    console.error = () => {};
-
-    await middleware(ctx);
-
-    console.error = originalError;
+    await silentMiddleware(ctx);
   });
 
   kv.close();

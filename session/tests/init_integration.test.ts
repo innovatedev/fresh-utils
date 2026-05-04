@@ -59,10 +59,10 @@ Deno.test({
       const utilsContent = await Deno.readTextFile(join(tempDir, "utils.ts"));
       expect(utilsContent).toContain("export type { State }");
       expect(utilsContent).toContain(
-        "export type AppState = State<User, {}> & ExtraState",
+        "export type AppState = State<User, Record<string, unknown>> & ExtraState",
       );
       expect(utilsContent).toContain(
-        "createDefineSession<User, {}, ExtraState>()",
+        "createDefineSession<User, Record<string, unknown>, ExtraState>()",
       );
 
       // 5. Verify deno.json updates
@@ -74,11 +74,6 @@ Deno.test({
 
       // 6. Run Deno Check
       // We need to point the import map to local source for this to work without JSR publish
-      denoJson.imports["@innovatedev/fresh-session"] = join(
-        ROOT,
-        "src",
-        "mod.ts",
-      );
       denoJson.imports["@innovatedev/fresh-session"] = join(
         ROOT,
         "src",

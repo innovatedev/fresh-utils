@@ -51,6 +51,7 @@ export async function initAction(
     | undefined;
 
   let shouldUpdateUtils = true;
+  let shouldUpdateUIButton = true;
   let authPrefix = "";
   let shouldResetLock = false;
   let shouldAddUnstableKv = false;
@@ -190,6 +191,11 @@ export async function initAction(
     });
 
     if (preset !== "none") {
+      shouldUpdateUIButton = await Confirm.prompt({
+        message: "Update components/Button.tsx to support custom styling?",
+        default: true,
+      });
+
       authPrefix = await Input.prompt({
         message: "Auth route prefix? (e.g. /auth, default: none)",
         default: "",
@@ -257,7 +263,7 @@ export async function initAction(
               <input type="text" name="username" placeholder="Username" class="input input-bordered w-full focus:input-primary transition-all" required />
             </label>`)
         : dedent(`
-            <label class="block space-y-1">
+            <label class="flex flex-col gap-1.5">
               <span class="block text-sm font-semibold text-gray-700">Username</span>
               <input type="text" name="username" placeholder="Username" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 sm:text-sm transition-all outline-none" required />
             </label>`))
@@ -272,7 +278,7 @@ export async function initAction(
               <input type="email" name="email" placeholder="email@example.com" class="input input-bordered w-full focus:input-primary transition-all" required />
             </label>`)
         : dedent(`
-            <label class="block space-y-1">
+            <label class="flex flex-col gap-1.5">
               <span class="block text-sm font-semibold text-gray-700">Email</span>
               <input type="email" name="email" placeholder="email@example.com" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 sm:text-sm transition-all outline-none" required />
             </label>`))
@@ -294,7 +300,7 @@ export async function initAction(
           <input type="${loginType}" name="login" placeholder="${loginPlaceholder}" class="input input-bordered w-full focus:input-primary transition-all" required />
         </label>`)
     : dedent(`
-        <label class="block space-y-1">
+        <label class="flex flex-col gap-1.5">
           <span class="block text-sm font-semibold text-gray-700">${loginLabel}</span>
           <input type="${loginType}" name="login" placeholder="${loginPlaceholder}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 sm:text-sm transition-all outline-none" required />
         </label>`);
@@ -334,6 +340,11 @@ export async function initAction(
 
   // 2. Config & Routes
   await writeFile("config/session.ts", configContent, options.yes);
+  await writeFile(
+    "config/session.migrate.ts",
+    sanitizeImports(await readTemplate("config/session.migrate.ts")),
+    options.yes,
+  );
 
   // 2.5. Write kv/ files for kvdex presets
   if (isKvdex) {
@@ -346,8 +357,6 @@ export async function initAction(
       '        userId: "secondary",',
       '        createdAt: "secondary",',
       '        lastSeenAt: "secondary",',
-      trackUA ? '        ua: "secondary",' : "",
-      trackIP ? '        ip: "secondary",' : "",
     ].filter(Boolean).join("\n");
 
     let dbContent = await readTemplate("kv/db.ts");
@@ -668,7 +677,9 @@ export async function initAction(
 
   // 5. Patch _app.tsx
   if (preset !== "none") {
-    await patchButtonComponent();
+    if (shouldUpdateUIButton) {
+      await patchButtonComponent();
+    }
     await patchAppTsx();
   }
 

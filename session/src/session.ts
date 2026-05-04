@@ -8,6 +8,8 @@
  */
 import type { Context } from "fresh";
 import { type Cookie, getCookies, setCookie } from "@std/http/cookie";
+import { MIDDLEWARE_SCHEMA_VERSION, migrate } from "./migrations.ts";
+import { SessionConfigError, SessionConflictError } from "./errors.ts";
 
 export type { Context };
 
@@ -42,11 +44,19 @@ export interface Session<TData = SessionData> {
    * Useful for concurrent mutations (e.g. counters, cart updates).
    *
    * @param transform A function that receives the freshest data and returns the updated data.
+   *                  Should be a pure transformation; avoid external side effects as it may run multiple times.
    * @param options Configuration for the retry loop.
    */
   update<T = TData>(
     transform: (data: T) => T | Promise<T>,
-    options?: { maxRetries?: number },
+    options?: {
+      /** Maximum number of retries on conflict (default: 3). */
+      maxRetries?: number;
+      /** Total time budget for all retry attempts in milliseconds. */
+      timeoutMs?: number;
+      /** Behavior when retries are exhausted. */
+      onExhausted?: "warn" | "throw";
+    },
   ): Promise<UpdateResult<T>>;
 }
 
@@ -106,7 +116,36 @@ export type State<UserType = unknown, TData = SessionData> = {
    * @param key The key of the flash message.
    */
   hasFlash(key: string): boolean;
+
+  /**
+   * Retrieves all active sessions for a specific user.
+   * Supported by Memory and KvDex stores.
+   *
+   * @param userId The unique user identifier.
+   */
+  getSessionsForUser(
+    userId: string,
+  ): Promise<{ sid: string; session: StoredSession<unknown> }[]>;
+
+  /**
+   * Revokes all sessions for a specific user except for the current one.
+   *
+   * @param userId The unique user identifier.
+   */
+  revokeOtherSessions(userId: string): Promise<void>;
 };
+
+/**
+ * Interface for the library logger.
+ */
+export interface SessionLogger {
+  /** Log a warning message. */
+  warn(message: string, ...args: unknown[]): void;
+  /** Log an error message. */
+  error(message: string, ...args: unknown[]): void;
+  /** Log a debug message. */
+  debug?(message: string, ...args: unknown[]): void;
+}
 
 /**
  * Interface for session storage backends.
@@ -145,6 +184,7 @@ export interface SessionStorage {
    * @param sessionId The unique session identifier to remove.
    */
   delete(sessionId: string): Promise<void> | void;
+
   /**
    * Optional method to resolve a user from the session ID or other stored data.
    * This allows the store to handle user fetching logic (e.g. from KV).
@@ -152,6 +192,32 @@ export interface SessionStorage {
   resolveUser?(
     userId: string,
   ): Promise<unknown | undefined> | unknown | undefined;
+
+  /**
+   * Optional method to retrieve all active sessions for a specific user.
+   * Useful for session introspection and management.
+   *
+   * @param userId The unique user identifier.
+   */
+  getSessionsForUser?(
+    userId: string,
+  ):
+    | Promise<{ sid: string; session: StoredSession<unknown> }[]>
+    | { sid: string; session: StoredSession<unknown> }[];
+}
+
+/**
+ * Type guard to check if a storage backend supports a specific optional method.
+ *
+ * @param store The storage backend instance.
+ * @param method The name of the optional method to check for.
+ */
+export function storeSupports<T extends keyof SessionStorage>(
+  store: SessionStorage,
+  method: T,
+): store is SessionStorage & Required<Pick<SessionStorage, T>> {
+  return typeof (store as unknown as Record<string, unknown>)[method] ===
+    "function";
 }
 
 /**
@@ -232,10 +298,63 @@ export interface SessionOptions<UserType = unknown, TData = SessionData> {
     sessionId: string;
     userId?: string;
   }) => void;
+  /**
+   * Optional custom logger for library events and errors.
+   * Defaults to global `console`.
+   */
+  logger?: SessionLogger;
+  /**
+   * Application data versioning and migration configuration.
+   */
+  migrate?: MigrationConfig<TData>;
 }
+
+/**
+ * Configuration for application data migration.
+ */
+export interface MigrationConfig<TData = SessionData> {
+  /**
+   * The current version of the application session data schema.
+   * REQUIRED if migrate is provided.
+   */
+  version: number;
+
+  /**
+   * Map of migration functions.
+   * Each key is a version number, and the value is a function that
+   * upgrades the session data from version (N-1) to N.
+   */
+  migrations: Record<number, MigrationFn>;
+
+  /**
+   * Strategy for handling records with a version higher than `version`.
+   * Defaults to "invalidate".
+   *
+   * - "invalidate": The session is treated as invalid and the user is logged out.
+   * - "reset": Session data is cleared, but metadata (userId, etc.) is kept.
+   * - "keep": Data is passed through as-is (unsafe).
+   */
+  onUnknownVersion?: "invalidate" | "reset" | "keep";
+
+  /**
+   * If true, force a store write whenever a migration occurs, even if
+   * the session is not otherwise modified during the request.
+   * Defaults to false.
+   */
+  forceWriteOnMigration?: boolean;
+}
+
+/**
+ * A function that transforms session data from one version to the next.
+ */
+export type MigrationFn = (data: unknown) => unknown | Promise<unknown>;
 
 /** Internal structure for stored sessions. */
 export interface StoredSession<TData = SessionData> {
+  /** Schema version of the session record. */
+  __v: number;
+  /** Application data version. */
+  __appV?: number;
   /** The user-defined session data. */
   data: TData;
   /** Internal flash message storage. */
@@ -290,6 +409,32 @@ export function createSessionMiddleware<
     "Lax" as Cookie["sameSite"];
   const sessionExpiry = options.expiry;
   const absoluteExpiry = options.absoluteExpiry;
+  const logger = options.logger ?? console;
+
+  // Startup Validation for Migrations
+  if (options.migrate) {
+    const { version, migrations } = options.migrate;
+    if (!Number.isInteger(version) || version < 1) {
+      throw new SessionConfigError(
+        "migrate.version must be a positive integer",
+      );
+    }
+    for (let i = 1; i <= version; i++) {
+      if (!migrations[i]) {
+        throw new SessionConfigError(
+          `Migration chain is incomplete. Version is set to ${version} but no migration function exists for version ${i}.`,
+        );
+      }
+    }
+    const maxMigrationV = Math.max(
+      ...Object.keys(migrations).map((k) => parseInt(k)),
+    );
+    if (maxMigrationV > version) {
+      throw new SessionConfigError(
+        `migrate.migrations contains keys greater than version ${version}`,
+      );
+    }
+  }
 
   return async (ctx: Context<AppState>) => {
     // 1. API Token Flow (Stateless)
@@ -310,8 +455,7 @@ export function createSessionMiddleware<
         if (user) {
           // Valid API Request
           ctx.state.user = user as unknown as AppState["user"];
-          // deno-lint-ignore no-explicit-any
-          ctx.state.session = {} as any; // Stateless
+          ctx.state.session = {} as AppState["session"]; // Stateless
           ctx.state.sessionId = generateSessionId(); // Ephemeral
 
           // No-op Flash info
@@ -333,6 +477,7 @@ export function createSessionMiddleware<
     // 2. Standard Session Flow (Cookie-based)
     const cookies = getCookies(ctx.req.headers);
     let sessionId: string | undefined = cookies[cookieName];
+    const initialSessionId = sessionId;
 
     // Capture Client Signals
     let currentUa: string | undefined;
@@ -353,6 +498,8 @@ export function createSessionMiddleware<
 
     // Internal state
     let storedSession: StoredSession<TData> = {
+      __v: MIDDLEWARE_SCHEMA_VERSION,
+      __appV: options.migrate?.version ?? 0,
       data: {} as TData,
       flash: {},
       createdAt: Date.now(),
@@ -372,9 +519,11 @@ export function createSessionMiddleware<
       }
       sessionId = generateSessionId();
       ctx.state.sessionId = sessionId;
-      // deno-lint-ignore no-explicit-any
-      ctx.state.session = {} as any;
+      initialVersion = undefined;
+      ctx.state.session = {} as AppState["session"];
       storedSession = {
+        __v: MIDDLEWARE_SCHEMA_VERSION,
+        __appV: options.migrate?.version ?? 0,
         data: {} as TData,
         flash: {},
         createdAt: Date.now(),
@@ -385,57 +534,93 @@ export function createSessionMiddleware<
     };
 
     let initialVersion: string | undefined;
+    let forceSave = false;
 
     if (sessionId) {
       try {
         const raw = await options.store.get(sessionId);
         if (raw) {
           initialVersion = raw.version;
-          const data = raw;
+          const { record: migrated, migrated: _middlewareMigrated } = migrate(
+            raw,
+          );
+          storedSession = migrated as StoredSession<TData>;
 
-          // Check if it's the new structure
-          if (
-            data !== null && typeof data === "object" && "data" in data &&
-            "flash" in data
-          ) {
-            storedSession = data as StoredSession<TData>;
+          // 2. Application Data Migration
+          if (options.migrate) {
+            const { version, migrations, onUnknownVersion = "invalidate" } =
+              options.migrate;
+            let appV = storedSession.__appV ?? 0;
 
-            // 1. Validation: User Agent
-            if (options.trackUserAgent && storedSession.ua !== currentUa) {
-              await logout();
-            }
-
-            // 2. Validation: Expiry (Server-side enforcement)
-            const now = Date.now();
-            if (sessionExpiry) {
-              const idleTimeout = now - storedSession.lastSeenAt >
-                sessionExpiry * 1000;
-              if (idleTimeout) {
-                await logout("expired");
+            if (appV < version) {
+              // Migrate Forward
+              try {
+                while (appV < version) {
+                  const nextV = appV + 1;
+                  const migrator = migrations[nextV];
+                  // We know migrator exists due to startup validation
+                  storedSession.data =
+                    (await migrator(storedSession.data)) as TData;
+                  appV = nextV;
+                }
+                storedSession.__appV = version;
+                if (options.migrate.forceWriteOnMigration) {
+                  forceSave = true;
+                }
+              } catch (error) {
+                logger.error(
+                  `[session] Application migration failed for version ${
+                    appV + 1
+                  }:`,
+                  error,
+                );
+                await logout();
+                return ctx.next();
               }
-            }
-
-            if (absoluteExpiry) {
-              const absoluteTimeout = now - storedSession.createdAt >
-                absoluteExpiry * 1000;
-              if (absoluteTimeout) {
-                await logout("expired");
+            } else if (appV > version) {
+              // Newer version found (rollback or multi-version deployment)
+              if (onUnknownVersion === "invalidate") {
+                await logout();
+                return ctx.next();
+              } else if (onUnknownVersion === "reset") {
+                storedSession.data = {} as TData;
+                storedSession.__appV = version;
+                if (options.migrate.forceWriteOnMigration) {
+                  forceSave = true;
+                }
               }
+              // "keep" -> do nothing
             }
-          } else {
-            // Migration: Treat flat object as data
-            storedSession.data = data as TData;
-            storedSession.createdAt = Date.now(); // Approximate
-            // Hydrate tracking info for migrated session
-            storedSession.ua = currentUa;
-            storedSession.ip = currentIp;
+          }
+
+          // 1. Validation: User Agent
+          if (options.trackUserAgent && storedSession.ua !== currentUa) {
+            await logout();
+          }
+
+          // 2. Validation: Expiry (Server-side enforcement)
+          const now = Date.now();
+          if (sessionExpiry) {
+            const idleTimeout = now - storedSession.lastSeenAt >
+              sessionExpiry * 1000;
+            if (idleTimeout) {
+              await logout("expired");
+            }
+          }
+
+          if (absoluteExpiry) {
+            const absoluteTimeout = now - storedSession.createdAt >
+              absoluteExpiry * 1000;
+            if (absoluteTimeout) {
+              await logout("expired");
+            }
           }
         } else {
           // Invalid session ID (expired or fake)
           sessionId = undefined;
         }
       } catch (error) {
-        console.error("[session] Store get error:", error);
+        logger.error("[session] Store get error:", error);
         // On store error, we treat it as an invalid session to be safe
         sessionId = undefined;
       }
@@ -447,19 +632,17 @@ export function createSessionMiddleware<
       isNewSession = true;
     }
 
-    const initialSessionId = sessionId;
-    let forceSave = false;
-
     // Helper to rotate session
     const rotateSession = async () => {
       try {
         await options.store.delete(initialSessionId);
       } catch (error) {
-        console.error("[session] Store delete error during rotation:", error);
+        logger.error("[session] Store delete error during rotation:", error);
       }
       sessionId = generateSessionId();
       ctx.state.sessionId = sessionId;
       forceSave = true;
+      initialVersion = undefined;
       options.onEvent?.({
         type: "rotate",
         sessionId,
@@ -471,24 +654,36 @@ export function createSessionMiddleware<
     let sessionData = storedSession.data;
 
     // Use Proxy to provide direct property access while adding methods
-    // deno-lint-ignore no-explicit-any
-    const sessionObject = new Proxy(sessionData as any, {
+    const sessionObject = new Proxy(sessionData as TData & Session<TData>, {
       get(target, prop, receiver) {
         if (prop === "update") {
           return async (
-            // deno-lint-ignore no-explicit-any
-            transform: (data: any) => any | Promise<any>,
-            updateOptions?: { maxRetries?: number },
-            // deno-lint-ignore no-explicit-any
-          ): Promise<UpdateResult<any>> => {
+            transform: (data: TData) => TData | Promise<TData>,
+            updateOptions?: {
+              maxRetries?: number;
+              timeoutMs?: number;
+              onExhausted?: "warn" | "throw";
+            },
+          ): Promise<UpdateResult<TData>> => {
             const maxRetries = updateOptions?.maxRetries ?? 3;
+            const onExhausted = updateOptions?.onExhausted ?? "warn";
+            const timeoutMs = updateOptions?.timeoutMs;
+            const startTime = Date.now();
             let attempts = 0;
+
             while (attempts < maxRetries) {
+              if (timeoutMs && (Date.now() - startTime > timeoutMs)) {
+                if (onExhausted === "throw") {
+                  throw new Error(`Update timed out after ${timeoutMs}ms`);
+                }
+                logger.warn(`[session] Update timed out after ${timeoutMs}ms`);
+                return { ok: false, reason: "exhausted" };
+              }
               try {
                 const current = await options.store.get(sessionId!);
                 if (!current) return { ok: false, reason: "not_found" };
 
-                const newData = await transform(current.data);
+                const newData = await transform(current.data as TData);
                 await options.store.set(
                   sessionId!,
                   {
@@ -507,14 +702,15 @@ export function createSessionMiddleware<
                 originalLastSeen = Date.now();
 
                 // Update proxy target so subsequent reads see change
-                for (const key in newData) {
-                  target[key] = newData[key];
-                }
+                Object.assign(target as object, newData);
                 return { ok: true, data: newData };
               } catch (error) {
                 attempts++;
                 if (attempts >= maxRetries) {
-                  console.error("[session] Update exhausted retries:", error);
+                  if (onExhausted === "throw") {
+                    throw error;
+                  }
+                  logger.warn("[session] Update exhausted retries:", error);
                   return { ok: false, reason: "exhausted" };
                 }
                 // Optional: small delay between retries
@@ -534,8 +730,7 @@ export function createSessionMiddleware<
 
     // Populate State
     ctx.state.sessionId = sessionId;
-    // deno-lint-ignore no-explicit-any
-    ctx.state.session = sessionObject as any;
+    ctx.state.session = sessionObject as AppState["session"];
 
     // Implement Flash API
     // We need to track consumed flash messages to remove them on save
@@ -559,17 +754,33 @@ export function createSessionMiddleware<
     ctx.state.hasFlash = (key: string): boolean => {
       return key in storedSession.flash || key in newFlash;
     };
-
     // Implement Login/Logout
     ctx.state.login = async (userId: string, data?: TData) => {
       await rotateSession();
       storedSession.userId = userId;
       storedSession.data = data || ({} as TData);
-      // deno-lint-ignore no-explicit-any
-      ctx.state.session = storedSession.data as any;
+      ctx.state.session = storedSession.data as AppState["session"];
     };
 
     ctx.state.logout = logout;
+
+    ctx.state.getSessionsForUser = async (userId: string) => {
+      if (storeSupports(options.store, "getSessionsForUser")) {
+        return await options.store.getSessionsForUser(userId);
+      }
+      return [];
+    };
+
+    ctx.state.revokeOtherSessions = async (userId: string) => {
+      if (storeSupports(options.store, "getSessionsForUser")) {
+        const sessions = await options.store.getSessionsForUser(userId);
+        const currentSid = sessionId;
+        const promises = sessions
+          .filter((s) => s.sid !== currentSid)
+          .map((s) => options.store.delete(s.sid));
+        await Promise.all(promises);
+      }
+    };
 
     // User Resolution
     if (options.resolveUser) {
@@ -660,22 +871,33 @@ export function createSessionMiddleware<
           });
         }
       } catch (error) {
-        console.warn(
-          `[session] Optimistic locking failure for session ${sessionId}. Concurrent modification detected.`,
-          error,
-        );
+        if (error instanceof SessionConflictError) {
+          logger.warn(
+            `[session] Optimistic locking failure for session ${sessionId}. Concurrent modification detected.`,
+          );
+        } else {
+          logger.error(
+            `[session] Final save failed for session ${sessionId}:`,
+            error,
+          );
+        }
       }
     }
 
-    setCookie(response.headers, {
-      name: cookieName,
-      value: sessionId,
-      path: cookiePath,
-      httpOnly: cookieHttpOnly,
-      secure: cookieSecure,
-      sameSite: cookieSameSite,
-      maxAge: cookieOptions.maxAge ?? sessionExpiry,
-    });
+    if (
+      isNewSession || sessionId !== initialSessionId || dataChanged ||
+      flashChanged || shouldUpdateLastSeen || forceSave
+    ) {
+      setCookie(response.headers, {
+        name: cookieName,
+        value: sessionId,
+        path: cookiePath,
+        httpOnly: cookieHttpOnly,
+        secure: cookieSecure,
+        sameSite: cookieSameSite,
+        maxAge: cookieOptions.maxAge ?? sessionExpiry,
+      });
+    }
 
     return response;
   };

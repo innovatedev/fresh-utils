@@ -18,7 +18,6 @@
     "@innovatedev/fresh-session/kv-store": "./session/src/stores/kv.ts",
     "@innovatedev/fresh-session/memory-store": "./session/src/stores/memory.ts",
     "@innovatedev/fresh-session/kvdex-store": "./session/src/stores/kvdex.ts",
-    "@innovatedev/fresh-session/define": "./session/src/define.ts",
     "@olli/kvdex": "jsr:@olli/kvdex@^3.6.6"
   },
   "compilerOptions": {

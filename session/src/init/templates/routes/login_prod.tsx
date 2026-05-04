@@ -57,10 +57,10 @@ export default define.page((ctx) => {
             </div>
           )}
 
-          <form method="POST" class="space-y-6">
+          <form method="POST" class="flex flex-col gap-6">
             {/* {{LOGIN_FIELDS}} */}
 
-            <label class="block space-y-1">
+            <label class="flex flex-col gap-1.5">
               <span class="block text-sm font-semibold text-gray-700">
                 Password
               </span>
@@ -92,10 +92,10 @@ export default define.page((ctx) => {
               <div class="grow border-t border-gray-200"></div>
             </div>
 
-            <div class="mt-6">
+            <div class="mt-6 text-center">
               <a
                 href="/register"
-                class="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-all"
+                class="text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors"
               >
                 Create an account
               </a>
