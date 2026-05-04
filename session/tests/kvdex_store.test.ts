@@ -1,13 +1,14 @@
 import { expect } from "./deps.ts";
 import { collection, kvdex, model } from "@olli/kvdex";
+import type { StoredSession } from "../src/session.ts";
 import { KvDexSessionStorage, sessionModel } from "../src/stores/kvdex.ts";
+import type { KvValue, SessionDoc } from "../src/stores/kvdex.ts";
 import { SessionConfigError } from "../src/errors.ts";
 
 Deno.test("KvDexSessionStorage", async (t) => {
   const kv = await Deno.openKv(":memory:");
 
-  // deno-lint-ignore no-explicit-any
-  const MySessionModel = sessionModel<any>();
+  const MySessionModel = sessionModel<KvValue>();
   const UserModel = model<{ username: string; realId?: string }>();
 
   const db = kvdex({
@@ -50,13 +51,12 @@ Deno.test("KvDexSessionStorage", async (t) => {
     // Directly inspect the document in kvdex to verify flat structure
     const doc = await db.sessions.find(sessionId);
     expect(doc).toBeDefined();
-    // deno-lint-ignore no-explicit-any
-    const val = doc?.value as any;
+    const val = doc?.value as SessionDoc<KvValue>;
     expect(val.createdAt).toBeInstanceOf(Date);
     expect(val.data).toEqual(payload.data);
     expect(val.flash).toEqual({});
     // CRITICAL: Ensure id is NOT in the record (anti-pattern)
-    expect(val.id).toBeUndefined();
+    expect((val as { id?: string }).id).toBeUndefined();
   });
 
   await t.step("update preserves createdAt", async () => {
@@ -71,8 +71,7 @@ Deno.test("KvDexSessionStorage", async (t) => {
     // deno-lint-ignore no-explicit-any
     await store.set(sessionId, p1 as any);
     const firstGet = await db.sessions.find(sessionId);
-    // deno-lint-ignore no-explicit-any
-    const firstCreatedAt = (firstGet?.value as any).createdAt;
+    const firstCreatedAt = (firstGet?.value as SessionDoc<KvValue>).createdAt;
 
     await new Promise((r) => setTimeout(r, 10));
 
@@ -86,8 +85,7 @@ Deno.test("KvDexSessionStorage", async (t) => {
     // deno-lint-ignore no-explicit-any
     await store.set(sessionId, p2 as any);
     const secondGet = await db.sessions.find(sessionId);
-    // deno-lint-ignore no-explicit-any
-    const secondVal = secondGet?.value as any;
+    const secondVal = secondGet?.value as SessionDoc<KvValue>;
 
     expect(secondVal.data).toEqual({ step: 2 });
     expect(secondVal.createdAt).toEqual(firstCreatedAt);
@@ -116,26 +114,22 @@ Deno.test("KvDexSessionStorage", async (t) => {
 
     const user = await storeWithIndex.resolveUser(semanticId);
     expect(user).toBeDefined();
-    // deno-lint-ignore no-explicit-any
-    expect((user as any).username).toBe("bob");
+    expect((user as { username: string }).username).toBe("bob");
     // Ensure no internal ID leakage
-    // deno-lint-ignore no-explicit-any
-    expect((user as any).__id__).toBeUndefined();
+    expect((user as { __id__?: string }).__id__).toBeUndefined();
   });
 
   await t.step("delete", async () => {
     const sessionId = "del-test-id";
     await store.set(
       sessionId,
-      // deno-lint-ignore no-explicit-any
       {
         __v: 1,
         data: { a: 1 },
         flash: {},
         lastSeenAt: Date.now(),
         createdAt: Date.now(),
-        // deno-lint-ignore no-explicit-any
-      } as any,
+      } as StoredSession<KvValue>,
     );
 
     await store.delete(sessionId);
@@ -147,7 +141,7 @@ Deno.test("KvDexSessionStorage", async (t) => {
     const foreignDb = kvdex({
       kv,
       schema: {
-        other: collection(model<any>()),
+        other: collection(model<KvValue>()),
       },
     });
 

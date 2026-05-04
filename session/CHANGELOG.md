@@ -41,24 +41,23 @@
 
 ## 0.7.1
 
-- **Crash Recovery (WAL)**: Implemented a Write-Ahead Log (WAL) to resolve a
-  critical "Crash Window" vulnerability, guaranteeing eventually consistent
-  secondary index updates even if the server crashes immediately after a session
-  atomic commit.
-- **Fail-Fast Error Handling**: Stripped all internal logging and background
-  error swallowing from `KvDexSessionStorage` to conform to best practices.
-  Database constraints, misconfigured validators, and index sync failures now
-  fail-fast and throw directly to the application layer to prevent silent data
-  corruption.
-- **Consistent Reads**: Secondary and primary index updates are now strictly
-  `await`ed during session mutations, guaranteeing read-after-write consistency
-  before HTTP responses are flushed to the client.
-- **Concurrency**: Fixed an optimistic locking version mismatch bug during
-  session rotation (e.g., login/logout) that caused a `SessionConflictError`
-  with kvdex store.
-- **Testing**: Added a native `fresh` integration test suite to stringently test
-  optimistic locking and concurrent update capabilities as well as integration
-  test for register/login/logout/update.
+- **Crash Recovery (WAL)**: Fixed a reliability bug in `KvDexSessionStorage`
+  where the Write-Ahead Log (WAL) was deleted even if index updates failed. It
+  now properly persists WAL records for retry on failure using `Promise.all`.
+- **Memory Store Integrity**: Fixed a reference leakage bug in
+  `MemorySessionStorage` by implementing `structuredClone` for reads and writes,
+  ensuring concurrent in-memory requests don't mutate shared state.
+- **Performance Optimization**: Optimized the middleware to avoid sending
+  redundant `set-cookie` headers for stable, unchanged sessions.
+- **Source Hardening**: Hardened the core logic to correctly capture the initial
+  session ID and prevent unnecessary storage writes.
+- **Testing (Hardened)**: Transformed the test suite into a production-grade
+  framework with strictly typed `Context<State>`, property-based testing via
+  `fast-check`, and adequacy-proving litmus tests.
+- **Security Validation**: Strengthened entropy audit and server-side expiry
+  enforcement with negative assertion testing.
+- **Versioned Sessions**: Added `__v` field to session data to track schema
+  with migration path for future releases if any changes are required.
 
 ## 0.7.0
 

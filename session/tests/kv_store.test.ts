@@ -1,6 +1,7 @@
 import { expect } from "./deps.ts";
 import { DenoKvSessionStorage } from "../src/stores/kv.ts";
 import { SessionConflictError } from "../src/errors.ts";
+import type { StoredSession } from "../src/session.ts";
 
 Deno.test("DenoKvSessionStorage", async (t) => {
   const kv = await Deno.openKv(":memory:");
@@ -37,7 +38,7 @@ Deno.test("DenoKvSessionStorage", async (t) => {
       flash: {},
       lastSeenAt: Date.now(),
       createdAt: Date.now(),
-    } as any);
+    } as StoredSession);
 
     const res = await store.get(sessionId);
     const version = res?.version;
@@ -49,7 +50,7 @@ Deno.test("DenoKvSessionStorage", async (t) => {
       flash: {},
       lastSeenAt: Date.now(),
       createdAt: Date.now(),
-    } as any);
+    } as StoredSession);
 
     // Attempt update with old version should throw SessionConflictError
     await expect(store.set(sessionId, {
@@ -58,7 +59,7 @@ Deno.test("DenoKvSessionStorage", async (t) => {
       flash: {},
       lastSeenAt: Date.now(),
       createdAt: Date.now(),
-    } as any, version)).rejects.toThrow(SessionConflictError);
+    } as StoredSession, version)).rejects.toThrow(SessionConflictError);
   });
 
   kv.close();

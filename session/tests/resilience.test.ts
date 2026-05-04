@@ -1,14 +1,24 @@
 import { expect } from "./deps.ts";
 import { collection, kvdex } from "@olli/kvdex";
-import { createSessionMiddleware } from "../src/session.ts";
-import { KvDexSessionStorage, sessionModel } from "../src/stores/kvdex.ts";
+import {
+  type Context,
+  createSessionMiddleware,
+  type SessionStorage,
+  type State,
+  type StoredSession,
+} from "../src/session.ts";
+import {
+  KvDexSessionStorage,
+  type KvValue,
+  type SessionDoc,
+  sessionModel,
+} from "../src/stores/kvdex.ts";
 
 Deno.test("Resilience & Edge Cases", async (t) => {
   const kv = await Deno.openKv(":memory:");
 
   // Setup standard store
-  // deno-lint-ignore no-explicit-any
-  const MySessionModel = sessionModel<any>();
+  const MySessionModel = sessionModel<KvValue>();
   const db = kvdex({
     kv,
     schema: {
@@ -37,8 +47,7 @@ Deno.test("Resilience & Edge Cases", async (t) => {
       // thanks to our new guard rails, preventing a crash.
       const retrieved = await store.get(sessionId);
       expect(retrieved).toBeDefined();
-      // deno-lint-ignore no-explicit-any
-      expect(typeof (retrieved as any)?.lastSeenAt).toBe("number");
+      expect(typeof retrieved?.lastSeenAt).toBe("number");
     },
   );
 
@@ -58,7 +67,7 @@ Deno.test("Resilience & Edge Cases", async (t) => {
       // This SHOULD throw the Deno KV error (value too large)
       try {
         // deno-lint-ignore no-explicit-any
-        await store.set(sessionId, payload as any);
+        await store.set(sessionId, payload as StoredSession<any>);
         throw new Error("Should have thrown due to size limit");
       } catch (err) {
         const error = err as Error;
@@ -95,7 +104,7 @@ Deno.test("Resilience & Edge Cases", async (t) => {
       lastSeenAt: new Date(),
       expiresAt: new Date(),
       // deno-lint-ignore no-explicit-any
-    } as any);
+    } as SessionDoc<any>);
 
     // Getting the session should THROW because the validator crashed
     let threw = false;
@@ -110,9 +119,9 @@ Deno.test("Resilience & Edge Cases", async (t) => {
 
   await t.step("Middleware: Handle store.set failure gracefully", async () => {
     const sessionId = "set-fail-session";
-    // deno-lint-ignore no-explicit-any
-    const storage: any = {
+    const storage: SessionStorage = {
       get: () => ({
+        __v: 1,
         data: { count: 1 },
         flash: {},
         lastSeenAt: Date.now(),
@@ -131,16 +140,15 @@ Deno.test("Resilience & Edge Cases", async (t) => {
     const originalWarn = console.warn;
     console.warn = (msg: string) => errors.push(msg);
 
-    // deno-lint-ignore no-explicit-any
-    const ctx: any = {
+    const ctx = {
       req: { headers: new Headers({ cookie: `sessionId=${sessionId}` }) },
       info: { remoteAddr: { hostname: "127.0.0.1" } },
-      state: {},
+      state: {} as State,
       next: () => {
         ctx.state.session.count = 2;
-        return new Response("OK");
+        return Promise.resolve(new Response("OK"));
       },
-    };
+    } as unknown as Context<State>;
 
     const response = await middleware(ctx);
 
@@ -154,6 +162,46 @@ Deno.test("Resilience & Edge Cases", async (t) => {
     // Verify warning was logged
     expect(errors.some((e) => e.includes("Concurrent modification detected")))
       .toBe(true);
+  });
+
+  await t.step("Middleware: Handle slow storage gracefully", async () => {
+    const sessionId = "slow-session";
+    const storage: SessionStorage = {
+      get: async () => {
+        await new Promise((r) => setTimeout(r, 100)); // 100ms latency
+        return {
+          __v: 1,
+          data: { lat: 1 },
+          flash: {},
+          lastSeenAt: Date.now(),
+          createdAt: Date.now(),
+          version: "v1",
+        };
+      },
+      set: async () => {
+        await new Promise((r) => setTimeout(r, 50)); // 50ms latency
+      },
+      delete: () => Promise.resolve(),
+    };
+
+    const middleware = createSessionMiddleware({ store: storage });
+    const ctx = {
+      req: { headers: new Headers({ cookie: `sessionId=${sessionId}` }) },
+      info: { remoteAddr: { hostname: "127.0.0.1" } },
+      state: {} as State,
+      next: () => {
+        // deno-lint-ignore no-explicit-any
+        (ctx.state.session as any).foo = "bar"; // Trigger a write to see latency
+        return Promise.resolve(new Response("Slow OK"));
+      },
+    } as unknown as Context<State>;
+
+    const start = Date.now();
+    const response = await middleware(ctx);
+    const end = Date.now();
+
+    expect(await response.text()).toBe("Slow OK");
+    expect(end - start).toBeGreaterThanOrEqual(150); // Total latency should be visible
   });
 
   kv.close();

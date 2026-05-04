@@ -1,6 +1,10 @@
 import { expect } from "./deps.ts";
 import { collection, kvdex, model } from "@olli/kvdex";
-import { KvDexSessionStorage } from "../src/stores/kvdex.ts";
+import {
+  KvDexSessionStorage,
+  type KvValue,
+  type SessionDoc,
+} from "../src/stores/kvdex.ts";
 
 Deno.test("Write-Ahead Log (WAL) Crash Recovery", async (t) => {
   const kv = await Deno.openKv(":memory:");
@@ -31,15 +35,14 @@ Deno.test("Write-Ahead Log (WAL) Crash Recovery", async (t) => {
     // 1. Simulate a crashed state: A primary document was written, and a WAL record exists,
     // but the secondary index (kvdex internal structure) was never updated.
 
-    const oldDoc = {
+    const oldDoc: SessionDoc<KvValue> = {
       __v: 1,
       data: { foo: "bar" },
       flash: {},
       createdAt: new Date(),
-      updatedAt: new Date(),
       lastSeenAt: new Date(),
       userId: "old-user-id", // Old index value
-    };
+    } as unknown as SessionDoc<KvValue>;
 
     const newDoc = {
       ...oldDoc,
@@ -85,9 +88,66 @@ Deno.test("Write-Ahead Log (WAL) Crash Recovery", async (t) => {
       "new-user-id",
     );
     expect(newIndexSearch.result.length).toBe(1);
-    // deno-lint-ignore no-explicit-any
-    expect((newIndexSearch.result[0].value as any).userId).toBe("new-user-id");
+    expect((newIndexSearch.result[0].value as SessionDoc<KvValue>).userId).toBe(
+      "new-user-id",
+    );
   });
+
+  await t.step(
+    "should handle partial sync failures and preserve WAL",
+    async () => {
+      const sessionId = "partial-fail-session";
+      const newDoc = {
+        __v: 1,
+        data: { foo: "partial" },
+        flash: {},
+        createdAt: new Date(),
+        lastSeenAt: new Date(),
+        userId: "fail-user-id",
+      } as unknown as SessionDoc<KvValue>;
+
+      // 1. Setup a WAL record
+      await kv.set([...walPrefix, sessionId], {
+        oldDoc: null,
+        newDoc,
+      });
+
+      // 2. Mock kv.set to fail for index updates
+      const originalSet = kv.set.bind(kv);
+      kv.set = (key, value, options) => {
+        if (
+          Array.isArray(key) &&
+          key.some((k) => typeof k === "string" && k.includes("index"))
+        ) {
+          throw new Error("KV Index Update Failure");
+        }
+        return originalSet(key, value, options);
+      };
+
+      // 3. Instantiate store (triggers sync)
+      // Silence the expected background error
+      const originalError = console.error;
+      console.error = () => {};
+
+      try {
+        new KvDexSessionStorage({
+          db,
+          collection: db.sessions,
+        });
+
+        await new Promise((r) => setTimeout(r, 100));
+      } finally {
+        console.error = originalError;
+      }
+
+      // 4. WAL record should STILL exist because sync failed
+      const walEntry = await kv.get([...walPrefix, sessionId]);
+      expect(walEntry.value).not.toBeNull();
+
+      // Restore original set
+      kv.set = originalSet;
+    },
+  );
 
   kv.close();
 });

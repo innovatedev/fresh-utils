@@ -32,8 +32,11 @@ export class MemorySessionStorage implements SessionStorage {
   ): (StoredSession<SessionData> & { version: string }) | undefined {
     const entry = this.#store.get(sessionId);
     if (!entry) return undefined;
+
+    // We clone the data to avoid reference leakage between concurrent requests.
+    // This simulates the behavior of serialized storage backends (KV, Redis, etc.)
     return {
-      ...(entry.data as unknown as StoredSession<SessionData>),
+      ...(structuredClone(entry.data) as StoredSession<SessionData>),
       version: entry.version.toString(),
     };
   }
@@ -55,7 +58,11 @@ export class MemorySessionStorage implements SessionStorage {
     }
 
     const nextVersion = existing ? existing.version + 1 : 1;
-    this.#store.set(sessionId, { data, version: nextVersion });
+    // Clone on write too to be safe
+    this.#store.set(sessionId, {
+      data: structuredClone(data),
+      version: nextVersion,
+    });
   }
 
   /**

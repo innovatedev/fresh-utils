@@ -561,8 +561,10 @@ export class KvDexSessionStorage<
       }
     }
 
-    // Execute all index updates concurrently
-    await Promise.allSettled(promises);
+    // Execute all index updates concurrently.
+    // We use Promise.all to ensure that if any update fails, the WAL record is NOT deleted,
+    // allowing for a retry during the next startup or sync.
+    await Promise.all(promises);
 
     // Clear the WAL tracking record since index updates are complete
     await this.#db.kv.delete([...this.#walPrefix, sessionId]);
@@ -576,7 +578,14 @@ export class KvDexSessionStorage<
       const sessionId = entry.key[entry.key.length - 1] as string;
       // deno-lint-ignore no-explicit-any
       const { oldDoc, newDoc, expireIn } = entry.value as any;
-      await this.#updateIndices(sessionId, oldDoc, newDoc, expireIn);
+      try {
+        await this.#updateIndices(sessionId, oldDoc, newDoc, expireIn);
+      } catch (error) {
+        console.error(
+          `[session] WAL sync failed for session ${sessionId}:`,
+          error,
+        );
+      }
     }
   }
 

@@ -336,6 +336,7 @@ export function createSessionMiddleware<
     // 2. Standard Session Flow (Cookie-based)
     const cookies = getCookies(ctx.req.headers);
     let sessionId: string | undefined = cookies[cookieName];
+    const initialSessionId = sessionId;
 
     // Capture Client Signals
     let currentUa: string | undefined;
@@ -437,8 +438,6 @@ export function createSessionMiddleware<
       sessionId = generateSessionId();
       isNewSession = true;
     }
-
-    const initialSessionId = sessionId;
     let forceSave = false;
 
     // Helper to rotate session
@@ -659,15 +658,20 @@ export function createSessionMiddleware<
       }
     }
 
-    setCookie(response.headers, {
-      name: cookieName,
-      value: sessionId,
-      path: cookiePath,
-      httpOnly: cookieHttpOnly,
-      secure: cookieSecure,
-      sameSite: cookieSameSite,
-      maxAge: cookieOptions.maxAge ?? sessionExpiry,
-    });
+    if (
+      isNewSession || sessionId !== initialSessionId || dataChanged ||
+      flashChanged || shouldUpdateLastSeen || forceSave
+    ) {
+      setCookie(response.headers, {
+        name: cookieName,
+        value: sessionId,
+        path: cookiePath,
+        httpOnly: cookieHttpOnly,
+        secure: cookieSecure,
+        sameSite: cookieSameSite,
+        maxAge: cookieOptions.maxAge ?? sessionExpiry,
+      });
+    }
 
     return response;
   };
