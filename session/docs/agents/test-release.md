@@ -24,8 +24,29 @@ Run the `init` script from the current workspace or a specific version.
 
 ### A. From Local Workspace (Development)
 
+When evaluating the script using local source files instead of the published JSR
+package, Deno and Vite require explicit mapping for internal dependencies since
+there is no JSR metadata to resolve them.
+
+1. Run the initialization script:
+
 ```bash
 deno run -A {workspaceroot}/session/src/init/mod.ts -y
+```
+
+2. Open the test app's `deno.json` and replace the `@innovatedev/fresh-session`
+   `jsr:` import with local paths, and manually add its internal `@std/http`
+   dependency:
+
+```json
+"imports": {
+  /* ... existing imports ... */
+  "@innovatedev/fresh-session": "../../fresh-utils/session/src/mod.ts",
+  "@innovatedev/fresh-session/kv-store": "../../fresh-utils/session/src/stores/kv.ts",
+  "@innovatedev/fresh-session/memory-store": "../../fresh-utils/session/src/stores/memory.ts",
+  "@innovatedev/fresh-session/kvdex-store": "../../fresh-utils/session/src/stores/kvdex.ts",
+  "@std/http": "jsr:@std/http@^1.0.22"
+}
 ```
 
 ### B. From JSR (Release Testing)
@@ -127,12 +148,13 @@ implementation against the
 ```
 
 > [!IMPORTANT]
-> BE CRITICAL. You are a QUALITY CONTROL AUDITOR, not an enabler of bad practices or shortcuts.
-> For DX, punish any code smells or messy code generation practices, or bad DX with using this package.
-> If the agent is testing multiple presets or design systems, create a separate
-> JSON report file for each combination. Also make sure all domain values are
-> weighted correctly based on the standards document and total is out of 100
-> (weighted from standards document).
+> BE CRITICAL. You are a QUALITY CONTROL AUDITOR, not an enabler of bad
+> practices or shortcuts. For DX, punish any code smells or messy code
+> generation practices, or bad DX with using this package. If the agent is
+> testing multiple presets or design systems, create a separate JSON report file
+> for each combination. Also make sure all domain values are weighted correctly
+> based on the standards document and total is out of 100 (weighted from
+> standards document).
 
 ## 7. Execution Summary
 
@@ -143,9 +165,3 @@ When an agent completes validation, it should report:
 3. Design System detected (Vanilla/DaisyUI).
 4. Results of `deno check` (confirm no inference regressions).
 5. Link to the **Self-Assessment JSON report**.
-
-## 8. Cleanup
-
-```bash
-rm -rf ./work/fresh-test-app
-```

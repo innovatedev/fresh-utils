@@ -16,10 +16,10 @@ function getExpectedStateInterface(isKvdex: boolean) {
         ${extraStateDefinition}
 
         /** Global application state */
-        export type AppState = State<User, {}> & ExtraState;
+        export type AppState = State<User, Record<string, unknown>> & ExtraState;
 
-        // Replace '{}' with your custom SessionData if needed
-        export const define = createDefineSession<User, {}, ExtraState>();
+        // Replace 'Record<string, unknown>' with your custom SessionData if needed
+        export const define = createDefineSession<User, Record<string, unknown>, ExtraState>();
         
         /** Strictly typed state for authenticated routes (guarantees user presence) */
         export type AuthState = AppState & { user: User; userId: string };
@@ -29,10 +29,10 @@ function getExpectedStateInterface(isKvdex: boolean) {
         ${extraStateDefinition}
 
         /** Global application state */
-        export type AppState = State<unknown, {}> & ExtraState;
+        export type AppState = State<unknown, Record<string, unknown>> & ExtraState;
 
-        // Replace 'unknown' and '{}' with your User and SessionData types
-        export const define = createDefineSession<unknown, {}, ExtraState>();
+        // Replace 'unknown' and 'Record<string, unknown>' with your User and SessionData types
+        export const define = createDefineSession<unknown, Record<string, unknown>, ExtraState>();
         
         /** Strictly typed state for authenticated routes (guarantees user presence) */
         export type AuthState = AppState & { user: unknown; userId: string };
@@ -51,9 +51,11 @@ Deno.test("patchUtilsState - String Generation Logic", async (t) => {
 
   await t.step("should use User type for kvdex presets", () => {
     const output = getExpectedStateInterface(true);
-    expect(output).toContain("createDefineSession<User, {}, ExtraState>()");
     expect(output).toContain(
-      "export type AppState = State<User, {}> & ExtraState",
+      "createDefineSession<User, Record<string, unknown>, ExtraState>()",
+    );
+    expect(output).toContain(
+      "export type AppState = State<User, Record<string, unknown>> & ExtraState",
     );
     expect(output).toContain(
       "export type AuthState = AppState & { user: User; userId: string }",
@@ -63,13 +65,15 @@ Deno.test("patchUtilsState - String Generation Logic", async (t) => {
 
   await t.step("should use unknown for non-kvdex presets", () => {
     const output = getExpectedStateInterface(false);
-    expect(output).toContain("createDefineSession<unknown, {}, ExtraState>()");
     expect(output).toContain(
-      "export type AppState = State<unknown, {}> & ExtraState",
+      "createDefineSession<unknown, Record<string, unknown>, ExtraState>()",
+    );
+    expect(output).toContain(
+      "export type AppState = State<unknown, Record<string, unknown>> & ExtraState",
     );
     expect(output).toContain("user: unknown");
     expect(output).toContain(
-      "Replace 'unknown' and '{}' with your User and SessionData types",
+      "Replace 'unknown' and 'Record<string, unknown>' with your User and SessionData types",
     );
   });
 });

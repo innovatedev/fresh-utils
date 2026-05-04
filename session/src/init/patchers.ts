@@ -57,10 +57,10 @@ export async function patchUtilsState(
           ${extraStateDefinition}
 
           /** Global application state */
-          export type AppState = State<User, {}> & ExtraState;
+          export type AppState = State<User, Record<string, unknown>> & ExtraState;
 
-          // Replace '{}' with your custom SessionData if needed
-          export const define = createDefineSession<User, {}, ExtraState>();
+          // Replace 'Record<string, unknown>' with your custom SessionData if needed
+          export const define = createDefineSession<User, Record<string, unknown>, ExtraState>();
           
           /** Strictly typed state for authenticated routes (guarantees user presence) */
           export type AuthState = AppState & { user: User; userId: string };
@@ -70,10 +70,10 @@ export async function patchUtilsState(
           ${extraStateDefinition}
 
           /** Global application state */
-          export type AppState = State<unknown, {}> & ExtraState;
+          export type AppState = State<unknown, Record<string, unknown>> & ExtraState;
 
-          // Replace 'unknown' and '{}' with your User and SessionData types
-          export const define = createDefineSession<unknown, {}, ExtraState>();
+          // Replace 'unknown' and 'Record<string, unknown>' with your User and SessionData types
+          export const define = createDefineSession<unknown, Record<string, unknown>, ExtraState>();
           
           /** Strictly typed state for authenticated routes (guarantees user presence) */
           export type AuthState = AppState & { user: unknown; userId: string };

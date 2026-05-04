@@ -372,6 +372,7 @@ export function createSessionMiddleware<
       }
       sessionId = generateSessionId();
       ctx.state.sessionId = sessionId;
+      initialVersion = undefined;
       // deno-lint-ignore no-explicit-any
       ctx.state.session = {} as any;
       storedSession = {
@@ -460,6 +461,7 @@ export function createSessionMiddleware<
       sessionId = generateSessionId();
       ctx.state.sessionId = sessionId;
       forceSave = true;
+      initialVersion = undefined;
       options.onEvent?.({
         type: "rotate",
         sessionId,

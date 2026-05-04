@@ -53,6 +53,12 @@
 - **Consistent Reads**: Secondary and primary index updates are now strictly
   `await`ed during session mutations, guaranteeing read-after-write consistency
   before HTTP responses are flushed to the client.
+- **Concurrency**: Fixed an optimistic locking version mismatch bug during
+  session rotation (e.g., login/logout) that caused a `SessionConflictError`
+  with kvdex store.
+- **Testing**: Added a native `fresh` integration test suite to stringently test
+  optimistic locking and concurrent update capabilities as well as integration
+  test for register/login/logout/update.
 
 ## 0.7.0
 
