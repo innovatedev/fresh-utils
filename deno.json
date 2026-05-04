@@ -12,7 +12,8 @@
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
     "@std/path": "jsr:@std/path@^1.1.3",
-    "preact": "npm:preact@^10.27.2",
+    "fresh": "jsr:@fresh/core@^2.3.3",
+    "preact": "npm:preact@^10.29.1",
     "@felix/argon2": "jsr:@felix/argon2@^3.0.2",
     "@innovatedev/fresh-session": "./session/src/mod.ts",
     "@innovatedev/fresh-session/kv-store": "./session/src/stores/kv.ts",
