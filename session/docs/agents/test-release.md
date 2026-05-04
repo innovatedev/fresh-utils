@@ -10,10 +10,12 @@ Before testing the init script, create a new, clean Fresh 2.0 project. Note that
 the Fresh init script is interactive:
 
 ```bash
-# Create a new project named 'test-app'
-deno run -A jsr:@fresh/init ../../work/fresh-test-app --tailwind --vscode
-# make sure we are out of the repo root to avoid deno workspace issues
-cd ../../work/fresh-test-app
+# assumes we are at workspaceroot (not ./session/)
+# ls .. # should show {workspaceroot folder} folder, as well as a work/ folder
+# Create a new project named 'fresh-session-test-app'
+rm -rf ../work/fresh-session-test-app
+deno run -A jsr:@fresh/init ../work/fresh-session-test-app --tailwind --vscode
+cd ../work/fresh-session-test-app
 ```
 
 ## 2. Run Initialization Script
@@ -23,7 +25,7 @@ Run the `init` script from the current workspace or a specific version.
 ### A. From Local Workspace (Development)
 
 ```bash
-deno run -A ../../fresh-utils/session/src/init/mod.ts -y
+deno run -A {workspaceroot}/session/src/init/mod.ts -y
 ```
 
 ### B. From JSR (Release Testing)
@@ -40,7 +42,7 @@ deno run -A -r jsr:@innovatedev/fresh-session/init -y
 Run the script with the non-interactive flag:
 
 ```bash
-deno run -A ../../session/src/init/mod.ts -y
+deno run -A {workspaceroot}/session/src/init/mod.ts -y
 ```
 
 **Verification:**
@@ -75,12 +77,6 @@ subdirectory of a monorepo, you may need `DENO_NO_WORKSPACE=1`.
       preservation).
 - [ ] No `any` casts should exist in the generated route handlers.
 
-### UI Standards (Tailwind 4)
-
-- [ ] Search for legacy classes: `flex-shrink-0`, `flex-grow`. (Should be
-      `shrink-0`, `grow`).
-- [ ] Verify focus states: Should use `focus:ring-2` and `outline-none`.
-
 ### Dependency Integrity
 
 - [ ] `deno.json` should contain `@olli/kvdex`.
@@ -97,13 +93,13 @@ subdirectory of a monorepo, you may need `DENO_NO_WORKSPACE=1`.
 
 After completing the technical validation, perform a formal evaluation of the
 implementation against the
-[Session Middleware Evaluation Standard](../../evaluation/session-middleware-standards.md).
+[Session Middleware Evaluation Standard](../session-middleware-standards.md).
 
 1. **Grade the implementation**: Use the worksheet in the standards document.
 2. **Generate a JSON report**: Create a file in `evaluations/<date>-v<version>/`
-   named `self-assessment-<timestamp>.json`.
+   named `<options>-<timestamp>.json`.
 3. **Naming Convention**: Use ISO-8601-like timestamp in the filename to allow
-   multiple evaluations: `self-assessment-2026-05-03T10-30-00Z.json`.
+   multiple evaluations: `defaults-cli-2026-05-03T10-30-00Z.json`.
 
 **JSON Schema:**
 
@@ -131,6 +127,8 @@ implementation against the
 ```
 
 > [!IMPORTANT]
+> BE CRITICAL. You are a QUALITY CONTROL AUDITOR, not an enabler of bad practices or shortcuts.
+> For DX, punish any code smells or messy code generation practices, or bad DX with using this package.
 > If the agent is testing multiple presets or design systems, create a separate
 > JSON report file for each combination. Also make sure all domain values are
 > weighted correctly based on the standards document and total is out of 100

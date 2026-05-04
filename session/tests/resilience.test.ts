@@ -97,13 +97,20 @@ Deno.test("Resilience & Edge Cases", async (t) => {
       // deno-lint-ignore no-explicit-any
     } as any);
 
-    // Getting the session should return undefined because the validator crashed
-    const retrieved = await storeWithExplosion.get(sessionId);
-    expect(retrieved).toBeUndefined();
+    // Getting the session should THROW because the validator crashed
+    let threw = false;
+    try {
+      await storeWithExplosion.get(sessionId);
+    } catch (e) {
+      threw = true;
+      expect((e as Error).message).toBe("Validator Exploded");
+    }
+    expect(threw).toBe(true);
   });
 
   await t.step("Middleware: Handle store.set failure gracefully", async () => {
     const sessionId = "set-fail-session";
+    // deno-lint-ignore no-explicit-any
     const storage: any = {
       get: () => ({
         data: { count: 1 },
@@ -124,6 +131,7 @@ Deno.test("Resilience & Edge Cases", async (t) => {
     const originalWarn = console.warn;
     console.warn = (msg: string) => errors.push(msg);
 
+    // deno-lint-ignore no-explicit-any
     const ctx: any = {
       req: { headers: new Headers({ cookie: `sessionId=${sessionId}` }) },
       info: { remoteAddr: { hostname: "127.0.0.1" } },

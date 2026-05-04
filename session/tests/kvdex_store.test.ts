@@ -13,7 +13,11 @@ Deno.test("KvDexSessionStorage", async (t) => {
   const db = kvdex({
     kv,
     schema: {
-      sessions: collection(MySessionModel),
+      sessions: collection(MySessionModel, {
+        indices: {
+          userId: "secondary",
+        },
+      }),
       users: collection(UserModel, {
         indices: {
           realId: "secondary",
@@ -135,7 +139,7 @@ Deno.test("KvDexSessionStorage", async (t) => {
     expect(retrieved).toBeUndefined();
   });
 
-  await t.step("should throw on collection/db mismatch", async () => {
+  await t.step("should throw on collection/db mismatch", () => {
     const foreignDb = kvdex({
       kv,
       schema: {
@@ -143,17 +147,12 @@ Deno.test("KvDexSessionStorage", async (t) => {
       },
     });
 
-    const brokenStore = new KvDexSessionStorage({
-      db: foreignDb,
-      collection: db.sessions, // Collection from the WRONG db
-    });
-
-    await expect(brokenStore.set("test", {
-      data: {},
-      flash: {},
-      lastSeenAt: Date.now(),
-      // deno-lint-ignore no-explicit-any
-    } as any)).rejects.toThrow(SessionConfigError);
+    expect(() => {
+      new KvDexSessionStorage({
+        db: foreignDb,
+        collection: db.sessions, // Collection from the WRONG db
+      });
+    }).toThrow(SessionConfigError);
   });
 
   kv.close();

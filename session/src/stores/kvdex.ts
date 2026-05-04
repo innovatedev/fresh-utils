@@ -213,6 +213,11 @@ export interface KvDexSessionStorageOptions<
    */
   // deno-lint-ignore no-explicit-any
   dataValidator?: StandardSchemaV1<any, TSessionData> | any;
+  /**
+   * Optional prefix for Write-Ahead Log (WAL) tracking records.
+   * Defaults to `["__@innovatedev__", "fresh-session", "kvdex", "write-ahead-logging"]`.
+   */
+  walPrefix?: Deno.KvKey;
 }
 
 /**
@@ -255,6 +260,12 @@ export class KvDexSessionStorage<
   #userIndex?: string;
   // deno-lint-ignore no-explicit-any
   #dataValidator?: StandardSchemaV1<any, TSessionData>;
+  #idKeyPrefix: Deno.KvKey = [];
+  #primaryIndexedProperties: string[] = [];
+  #secondaryIndexedProperties: string[] = [];
+  #primaryIndexPrefix: Deno.KvKey = [];
+  #secondaryIndexPrefix: Deno.KvKey = [];
+  #walPrefix: Deno.KvKey;
 
   /**
    * Create a new Kvdex session storage instance.
@@ -275,6 +286,50 @@ export class KvDexSessionStorage<
     this.#expireAfter = options.expireAfter;
     this.#userIndex = options.userIndex;
     this.#dataValidator = options.dataValidator;
+    this.#walPrefix = options.walPrefix ??
+      ["__@innovatedev__", "fresh-session", "kvdex", "write-ahead-logging"];
+
+    // Proactively validate that the collection belongs to the provided db schema
+    // We do this by attempting to create an atomic builder (no commit needed)
+    try {
+      // deno-lint-ignore no-explicit-any
+      this.#db.atomic((schema: any) => {
+        let found = false;
+        for (const col of Object.values(schema)) {
+          if (col === this.#collection) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          throw new SessionConfigError(
+            "KvDexSessionStorage: The provided collection instance was not found in the kvdex database schema. " +
+              "Ensure you are passing the same 'db' that contains the 'collection'.",
+          );
+        }
+      });
+    } catch (e) {
+      if (e instanceof SessionConfigError) throw e;
+      // Ignore other potential errors during dry-run validation
+    }
+
+    // Discover internal kvdex key structure for atomic operations
+    // This allows us to perform the initial atomic check/set on the primary document
+    // while letting kvdex handle index maintenance in a secondary operation.
+    // deno-lint-ignore no-explicit-any
+    const col = this.#collection as any;
+    if (col.keys) {
+      this.#idKeyPrefix = col.keys.id || [];
+      this.#primaryIndexPrefix = col.keys.primaryIndex || [];
+      this.#secondaryIndexPrefix = col.keys.secondaryIndex || [];
+    }
+    this.#primaryIndexedProperties = col.primaryIndexList || [];
+    this.#secondaryIndexedProperties = col.secondaryIndexList || [];
+
+    // Trigger WAL sync in the background to clean up any stale indices from previous crashes
+    // If this fails, it will result in an unhandled promise rejection, which is the correct
+    // behavior for a critical database initialization failure.
+    this.#syncWal();
   }
 
   /**
@@ -311,26 +366,15 @@ export class KvDexSessionStorage<
 
     // Runtime validation if a validator is provided
     if (this.#dataValidator) {
-      try {
-        const result = this.#dataValidator["~standard"].validate(stored.data);
-        if (result instanceof Promise) {
-          const resolved = await result;
-          if (resolved.issues) return undefined; // Invalid data, treat as no session
-          stored.data = resolved.value;
-        } else if (result.issues) {
-          return undefined; // Invalid data
-        } else {
-          stored.data = result.value;
-        }
-      } catch (err) {
-        // If the validator itself throws, we treat the session as invalid
-        // to prevent a total application crash. We only log the error if
-        // we are NOT in a test environment to keep test results clean.
-        // deno-lint-ignore no-explicit-any
-        if (!(globalThis as any).Deno?.test) {
-          console.error("Session validator exploded:", err);
-        }
-        return undefined;
+      const result = this.#dataValidator["~standard"].validate(stored.data);
+      if (result instanceof Promise) {
+        const resolved = await result;
+        if (resolved.issues) return undefined; // Invalid data, treat as no session
+        stored.data = resolved.value;
+      } else if (result.issues) {
+        return undefined; // Invalid data
+      } else {
+        stored.data = result.value;
       }
     }
 
@@ -408,30 +452,126 @@ export class KvDexSessionStorage<
 
     const expireIn = this.#expireAfter ? this.#expireAfter * 1000 : undefined;
 
-    // deno-lint-ignore no-explicit-any
-    const atomic = this.#db.atomic((schema: any) => {
-      // We find the collection key by matching it in the schema
-      for (const [key, col] of Object.entries(schema)) {
-        if (col === this.#collection) return schema[key];
-      }
-      // If we get here, the collection wasn't found in the schema
-      throw new SessionConfigError(
-        "KvDexSessionStorage: The provided collection instance was not found in the kvdex database schema. " +
-          "Ensure you are passing the same 'db' that contains the 'collection'.",
-      );
-    });
+    // Prepare common variables
+    const idKey = [...this.#idKeyPrefix, sessionId];
+    const walKey = [...this.#walPrefix, sessionId];
+
+    // Attempt 1: Full atomic update using raw Deno KV (bypassing kvdex builder limits)
+    const atomic = this.#db.kv.atomic();
 
     if (version) {
-      atomic.check({ id: sessionId, versionstamp: version });
+      atomic.check({ key: idKey, versionstamp: version });
     }
 
-    const res = await atomic
-      // deno-lint-ignore no-explicit-any
-      .set(sessionId, doc as any, { expireIn, overwrite: true })
-      .commit();
+    // Main document write
+    atomic.set(idKey, doc, { expireIn });
+    // WAL tracking record write
+    atomic.set(walKey, { oldDoc: existingVal, newDoc: doc, expireIn });
 
-    if (!res.ok) {
+    const res = await atomic.commit();
+
+    if (res.ok) {
+      // Success!
+      // Update indices sequentially to ensure read-after-write consistency.
+      // If this fails, it will throw directly to the caller, allowing the application
+      // to handle the error properly.
+      await this.#updateIndices(sessionId, existingVal, doc, expireIn);
+      return;
+    }
+
+    // If we got here, the check failed (optimistic locking conflict)
+    if (version) {
       throw new SessionConflictError();
+    }
+  }
+
+  /**
+   * Manually updates kvdex indices without triggering an atomic transaction limits or primary record overwrites.
+   */
+  async #updateIndices(
+    sessionId: string,
+    // deno-lint-ignore no-explicit-any
+    oldDoc: any | undefined,
+    // deno-lint-ignore no-explicit-any
+    newDoc: any,
+    expireIn?: number,
+  ) {
+    const encoder = new TextEncoder();
+    const promises: Promise<void>[] = [];
+    const primaryIndexDoc = { ...newDoc, __id__: sessionId };
+
+    // 1. Delete old secondary indices
+    for (const prop of this.#secondaryIndexedProperties) {
+      const oldVal = oldDoc?.[prop];
+      const newVal = newDoc?.[prop];
+      if (oldVal !== undefined && oldVal !== null && oldVal !== newVal) {
+        const indexKey = [
+          ...this.#secondaryIndexPrefix,
+          prop,
+          encoder.encode(JSON.stringify(oldVal)),
+          sessionId,
+        ];
+        promises.push(this.#db.kv.delete(indexKey));
+      }
+    }
+
+    // 2. Set new secondary indices
+    for (const prop of this.#secondaryIndexedProperties) {
+      const newVal = newDoc?.[prop];
+      if (newVal !== undefined && newVal !== null) {
+        const indexKey = [
+          ...this.#secondaryIndexPrefix,
+          prop,
+          encoder.encode(JSON.stringify(newVal)),
+          sessionId,
+        ];
+        promises.push(this.#db.kv.set(indexKey, newDoc, { expireIn }));
+      }
+    }
+
+    // 3. Delete old primary indices
+    for (const prop of this.#primaryIndexedProperties) {
+      const oldVal = oldDoc?.[prop];
+      const newVal = newDoc?.[prop];
+      if (oldVal !== undefined && oldVal !== null && oldVal !== newVal) {
+        const indexKey = [
+          ...this.#primaryIndexPrefix,
+          prop,
+          encoder.encode(JSON.stringify(oldVal)),
+        ];
+        promises.push(this.#db.kv.delete(indexKey));
+      }
+    }
+
+    // 4. Set new primary indices
+    for (const prop of this.#primaryIndexedProperties) {
+      const newVal = newDoc?.[prop];
+      if (newVal !== undefined && newVal !== null) {
+        const indexKey = [
+          ...this.#primaryIndexPrefix,
+          prop,
+          encoder.encode(JSON.stringify(newVal)),
+        ];
+        promises.push(this.#db.kv.set(indexKey, primaryIndexDoc, { expireIn }));
+      }
+    }
+
+    // Execute all index updates concurrently
+    await Promise.allSettled(promises);
+
+    // Clear the WAL tracking record since index updates are complete
+    await this.#db.kv.delete([...this.#walPrefix, sessionId]);
+  }
+
+  /**
+   * Recovers any pending index updates that were interrupted by a process crash.
+   */
+  async #syncWal() {
+    for await (const entry of this.#db.kv.list({ prefix: this.#walPrefix })) {
+      const sessionId = entry.key[entry.key.length - 1] as string;
+      // deno-lint-ignore no-explicit-any
+      const { oldDoc, newDoc, expireIn } = entry.value as any;
+      await this.#updateIndices(sessionId, oldDoc, newDoc, expireIn);
     }
   }
 

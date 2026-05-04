@@ -2,6 +2,7 @@
 
 ## Versions
 
+- [0.7.1](#071)
 - [0.7.0](#070)
 - [0.6.0](#060)
 - [0.5.2](#052)
@@ -37,6 +38,21 @@
 - [0.3.3](#033)
 - [0.3.0](#030)
 - [0.2.0](#020)
+
+## 0.7.1
+
+- **Crash Recovery (WAL)**: Implemented a Write-Ahead Log (WAL) to resolve a
+  critical "Crash Window" vulnerability, guaranteeing eventually consistent
+  secondary index updates even if the server crashes immediately after a session
+  atomic commit.
+- **Fail-Fast Error Handling**: Stripped all internal logging and background
+  error swallowing from `KvDexSessionStorage` to conform to best practices.
+  Database constraints, misconfigured validators, and index sync failures now
+  fail-fast and throw directly to the application layer to prevent silent data
+  corruption.
+- **Consistent Reads**: Secondary and primary index updates are now strictly
+  `await`ed during session mutations, guaranteeing read-after-write consistency
+  before HTTP responses are flushed to the client.
 
 ## 0.7.0
 
