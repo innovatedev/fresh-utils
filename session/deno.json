@@ -1,6 +1,6 @@
 {
   "name": "@innovatedev/fresh-session",
-  "version": "0.8.0",
+  "version": "0.8.1-test-deps-01",
   "tasks": {
     "check": "deno fmt --check && deno check ./src && deno lint ./src && deno run -A ../tools/check-docs.ts && deno test -A ./tests",
     "test": "deno test -A ./tests"
@@ -13,8 +13,6 @@
     "./kvdex-store": "./src/stores/kvdex.ts"
   },
   "imports": {
-    "@preact/signals": "npm:@preact/signals@^2.5.0",
-    "fresh": "jsr:@fresh/core@^2.2.2",
     "@std/http": "jsr:@std/http@^1.0.22",
     "@std/path": "jsr:@std/path@^1.0.8",
     "@std/fs": "jsr:@std/fs@^1.0.11"
